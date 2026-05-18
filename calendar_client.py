@@ -5,13 +5,16 @@ import datetime as dt
 import os
 from zoneinfo import ZoneInfo
 
+import uuid
+
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 
 JST = ZoneInfo("Asia/Tokyo")
-SCOPES = ["https://www.googleapis.com/auth/calendar.readonly"]
+# calendar.events は free/busy 読み取り + イベント作成の両方に対応
+SCOPES = ["https://www.googleapis.com/auth/calendar.events"]
 
 Interval = tuple[dt.datetime, dt.datetime]
 
@@ -186,6 +189,90 @@ def format_union_only(
         time_str = "空きなし" if not intervals else _fmt_intervals(intervals)
         lines.append(f"【{_date_label(d)}】{time_str}")
     return "\n".join(lines)
+
+
+def generate_candidate_slots(
+    busy: list[Interval],
+    start_date: dt.date,
+    end_date: dt.date,
+    work_start_hour: int,
+    work_end_hour: int,
+    duration_minutes: int,
+    step_minutes: int = 30,
+    weekdays: list[int] | None = None,
+    now: dt.datetime | None = None,
+) -> list[Interval]:
+    """指定期間内で、staffが空いてる連続時間の中から duration_minutes 入る候補枠を列挙。
+    step_minutes 刻みで開始時刻を生成し、そのまま duration_minutes 取れる枠だけ返す。
+    weekdays は 0=月 6=日 のリスト（Noneなら全曜日）。
+    now を指定すると、それ以降の枠のみ返す（過去は除外）。"""
+    if weekdays is None:
+        weekdays = list(range(7))
+    now = now or dt.datetime.now(JST)
+    duration = dt.timedelta(minutes=duration_minutes)
+    step = dt.timedelta(minutes=step_minutes)
+
+    out: list[Interval] = []
+    d = start_date
+    while d <= end_date:
+        if d.weekday() not in weekdays:
+            d += dt.timedelta(days=1)
+            continue
+        window_start = dt.datetime.combine(d, dt.time(work_start_hour, 0), tzinfo=JST)
+        window_end = dt.datetime.combine(d, dt.time(work_end_hour, 0), tzinfo=JST)
+        free = free_within_window(busy, window_start, window_end)
+        for fs, fe in free:
+            cur = fs
+            while cur + duration <= fe:
+                if cur >= now:
+                    out.append((cur, cur + duration))
+                cur += step
+        d += dt.timedelta(days=1)
+    return out
+
+
+def create_event_with_meet(
+    service,
+    calendar_id: str,
+    title: str,
+    start: dt.datetime,
+    end: dt.datetime,
+    description: str = "",
+    send_updates: str = "none",
+) -> dict:
+    """カレンダーにGoogle Meetリンク付き予定を作成して返す。
+    calendar_id は対象カレンダーのID（メアドでもOK）。
+    そのカレンダーへの書き込み権限が必要。"""
+    event_body = {
+        "summary": title,
+        "description": description,
+        "start": {"dateTime": start.isoformat(), "timeZone": "Asia/Tokyo"},
+        "end": {"dateTime": end.isoformat(), "timeZone": "Asia/Tokyo"},
+        "conferenceData": {
+            "createRequest": {
+                "requestId": uuid.uuid4().hex,
+                "conferenceSolutionKey": {"type": "hangoutsMeet"},
+            }
+        },
+    }
+    return (
+        service.events()
+        .insert(
+            calendarId=calendar_id,
+            body=event_body,
+            conferenceDataVersion=1,
+            sendUpdates=send_updates,
+        )
+        .execute()
+    )
+
+
+def extract_meet_link(event: dict) -> str | None:
+    cd = event.get("conferenceData", {})
+    for entry in cd.get("entryPoints", []):
+        if entry.get("entryPointType") == "video":
+            return entry.get("uri")
+    return event.get("hangoutLink")
 
 
 def format_with_breakdown(

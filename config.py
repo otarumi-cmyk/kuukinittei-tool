@@ -34,3 +34,32 @@ WORK_END_HOUR = 22
 # UIの初期表示: 何日後から（2=翌々日）何日間を見るか
 DEFAULT_START_OFFSET = 2  # 翌々日
 DEFAULT_RANGE_DAYS = 3    # 3日間
+
+# ===== 予約作成ページの設定 =====
+
+# 担当者ごとの面談時間（分）
+BOOKING_DURATION = {
+    "y.hiraga@migi-nanameue.co.jp": 90,
+    "kotaro.suzuki@migi-nanameue.co.jp": 90,
+    "d.yokoyama@migi-nanameue.co.jp": 60,
+}
+
+# 担当者ごとの予約可能時間帯（JST, 24h）と曜日（0=月, 6=日）
+BOOKABLE_HOURS = {
+    "y.hiraga@migi-nanameue.co.jp": {
+        "start": 10, "end": 22, "weekdays": [0, 1, 2, 3, 4, 5, 6],
+    },
+    "kotaro.suzuki@migi-nanameue.co.jp": {
+        "start": 10, "end": 22, "weekdays": [0, 1, 2, 3, 4, 5, 6],
+    },
+    "d.yokoyama@migi-nanameue.co.jp": {
+        "start": 10, "end": 22, "weekdays": [0, 1, 2, 3, 4, 5, 6],
+    },
+}
+
+# 予約画面のデフォルト期間
+BOOKING_DEFAULT_START_OFFSET = 2   # 翌々日から
+BOOKING_DEFAULT_RANGE_DAYS = 14    # 2週間先まで
+
+# デフォルトの面談タイトル（インスタ名の後ろにつく）
+DEFAULT_MEETING_TITLE = "初回面談"
