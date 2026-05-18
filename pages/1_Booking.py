@@ -9,6 +9,7 @@ from calendar_client import (
     create_event_with_meet,
     extract_meet_link,
     fetch_busy,
+    find_free_resource,
     generate_candidate_slots,
 )
 from ui_helpers import check_password, get_calendar_service
@@ -153,33 +154,37 @@ if st.session_state.get("selected_slot") and not st.session_state.get("booking_r
     with confirm_col:
         if st.button("✅ 予約確定", type="primary"):
             try:
-                with st.spinner("予定を作成中..."):
+                with st.spinner("空いてるフォンブース検索中..."):
                     service = get_calendar_service()
+                    phone_box = find_free_resource(
+                        service, config.PHONE_BOX_RESOURCES, s, e
+                    )
+                attendees = [{"email": st.session_state.staff_email}]
+                if phone_box:
+                    attendees.append({"email": phone_box, "resource": True})
+                with st.spinner("予定を作成中..."):
                     description = (
                         f"インスタ名: {st.session_state.insta_name}\n"
                         f"担当: {st.session_state.staff_label}\n"
-                        f"（kuukinittei ツールから自動作成）"
+                        + (f"フォンブース: {config.PHONE_BOX_NAMES.get(phone_box, phone_box)}\n" if phone_box else "")
+                        + "（kuukinittei ツールから自動作成）"
                     )
+                    # primary (o.tarumi のカレンダー) に作成し、スタッフとフォンブースを招待
                     event = create_event_with_meet(
                         service,
-                        calendar_id=st.session_state.staff_email,
+                        calendar_id="primary",
                         title=title,
                         start=s,
                         end=e,
                         description=description,
+                        attendees=attendees,
+                        send_updates="all",
                     )
                 st.session_state.booking_result = event
+                st.session_state.phone_box_used = phone_box
             except Exception as ex:
-                msg = str(ex)
-                if "403" in msg or "permission" in msg.lower() or "forbidden" in msg.lower():
-                    st.error(
-                        f"予定作成に失敗しました（権限不足）。\n\n"
-                        f"対策: {st.session_state.staff_label} さんのGoogleカレンダーで、"
-                        f"o.tarumi@migi-nanameue.co.jp に「予定の変更権限」を共有してください。\n\n"
-                        f"詳細エラー: {msg}"
-                    )
-                else:
-                    st.error(f"エラー: {msg}")
+                st.error(f"エラー: {ex}")
+                st.exception(ex)
     with cancel_col:
         if st.button("✖️ キャンセル"):
             st.session_state.selected_slot = None
@@ -194,6 +199,11 @@ if st.session_state.get("booking_result"):
     st.divider()
     st.success("🎉 予約完了！")
 
+    phone_box = st.session_state.get("phone_box_used")
+    if phone_box:
+        st.write(f"**フォンブース**: {config.PHONE_BOX_NAMES.get(phone_box, phone_box)}")
+    else:
+        st.warning("⚠️ 空いてるフォンブースが見つかりませんでした。手動で会議室を確保してください。")
     if meet_link:
         st.write(f"**Meetリンク**: {meet_link}")
     st.write(f"**日時**: {fmt_date(s.date())} {fmt_slot(s, e)}")
@@ -212,6 +222,6 @@ if st.session_state.get("booking_result"):
     st.code(dm_text, language=None)
 
     if st.button("🔄 新しい予約を作る"):
-        for k in ("candidate_slots", "selected_slot", "booking_result"):
+        for k in ("candidate_slots", "selected_slot", "booking_result", "phone_box_used"):
             st.session_state.pop(k, None)
         st.rerun()

@@ -63,3 +63,27 @@ BOOKING_DEFAULT_RANGE_DAYS = 14    # 2週間先まで
 
 # デフォルトの面談タイトル（インスタ名の後ろにつく）
 DEFAULT_MEETING_TITLE = "初回面談"
+
+# 予約時に自動アサインされるフォンブース（空いてる順に選ぶ）
+PHONE_BOX_RESOURCES = [
+    "c_1881pr03kdt28g58ncn5mq2g2mch6@resource.calendar.google.com",  # 5F-A
+    "c_188e8la9c1huejb8l65e8env61j08@resource.calendar.google.com",  # 5F-B
+    "c_188468t6mf1raib0h2dvksel4k0pe@resource.calendar.google.com",  # 5F-C
+    "c_1889bk6nq2veshmkieduuv9ta76n8@resource.calendar.google.com",  # 5F-D
+    "c_1889u9g33evpkjafldgjlhc80pp0u@resource.calendar.google.com",  # 5F-E
+    "c_188d4pcs4v7tqhephrchcbmt155uk@resource.calendar.google.com",  # 5F-F
+    "c_1881fa69dbjn4je0g6hm9s5k4n5uk@resource.calendar.google.com",  # 3F-G
+    "c_1881fbkj3nt8oh3dg67oi0l1hplmq@resource.calendar.google.com",  # 3F-H
+    "c_1884tlds0t7eehujnnu0limapch04@resource.calendar.google.com",  # 3F-I
+]
+PHONE_BOX_NAMES = {
+    "c_1881pr03kdt28g58ncn5mq2g2mch6@resource.calendar.google.com": "5F-A",
+    "c_188e8la9c1huejb8l65e8env61j08@resource.calendar.google.com": "5F-B",
+    "c_188468t6mf1raib0h2dvksel4k0pe@resource.calendar.google.com": "5F-C",
+    "c_1889bk6nq2veshmkieduuv9ta76n8@resource.calendar.google.com": "5F-D",
+    "c_1889u9g33evpkjafldgjlhc80pp0u@resource.calendar.google.com": "5F-E",
+    "c_188d4pcs4v7tqhephrchcbmt155uk@resource.calendar.google.com": "5F-F",
+    "c_1881fa69dbjn4je0g6hm9s5k4n5uk@resource.calendar.google.com": "3F-G",
+    "c_1881fbkj3nt8oh3dg67oi0l1hplmq@resource.calendar.google.com": "3F-H",
+    "c_1884tlds0t7eehujnnu0limapch04@resource.calendar.google.com": "3F-I",
+}

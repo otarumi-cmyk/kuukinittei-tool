@@ -13,8 +13,8 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 
 JST = ZoneInfo("Asia/Tokyo")
-# calendar.events は free/busy 読み取り + イベント作成の両方に対応
-SCOPES = ["https://www.googleapis.com/auth/calendar.events"]
+# calendar はフルアクセス（free/busy読み取り + 予定作成 + カレンダーリスト取得）
+SCOPES = ["https://www.googleapis.com/auth/calendar"]
 
 Interval = tuple[dt.datetime, dt.datetime]
 
@@ -231,6 +231,32 @@ def generate_candidate_slots(
     return out
 
 
+def find_free_resource(
+    service,
+    resource_emails: list[str],
+    start: dt.datetime,
+    end: dt.datetime,
+) -> str | None:
+    """[start, end] で空いている最初のリソースのメアドを返す。全て埋まってたらNone。"""
+    if not resource_emails:
+        return None
+    body = {
+        "timeMin": start.isoformat(),
+        "timeMax": end.isoformat(),
+        "items": [{"id": e} for e in resource_emails],
+    }
+    result = service.freebusy().query(body=body).execute()
+    cals = result.get("calendars", {})
+    # 元の順序を維持
+    for email in resource_emails:
+        info = cals.get(email, {})
+        if info.get("errors"):
+            continue
+        if not info.get("busy"):
+            return email
+    return None
+
+
 def create_event_with_meet(
     service,
     calendar_id: str,
@@ -238,11 +264,12 @@ def create_event_with_meet(
     start: dt.datetime,
     end: dt.datetime,
     description: str = "",
+    attendees: list[dict] | None = None,
     send_updates: str = "none",
 ) -> dict:
-    """カレンダーにGoogle Meetリンク付き予定を作成して返す。
-    calendar_id は対象カレンダーのID（メアドでもOK）。
-    そのカレンダーへの書き込み権限が必要。"""
+    """カレンダーにGoogle Meetリンク付き予定を作成。
+    attendees は [{"email": "...", "resource": True}, ...] の形式。
+    リソース（会議室・フォンブース）は resource=True を指定する。"""
     event_body = {
         "summary": title,
         "description": description,
@@ -255,6 +282,8 @@ def create_event_with_meet(
             }
         },
     }
+    if attendees:
+        event_body["attendees"] = attendees
     return (
         service.events()
         .insert(
