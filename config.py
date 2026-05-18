@@ -64,6 +64,12 @@ BOOKING_DEFAULT_RANGE_DAYS = 14    # 2週間先まで
 # デフォルトの面談タイトル（インスタ名の後ろにつく）
 DEFAULT_MEETING_TITLE = "初回面談"
 
+# 予約作成時に通知が飛ぶメアド（オプショナルゲストとして招待される）
+NOTIFY_EMAILS = [
+    "k.suzuki@migi-nanameue.co.jp",
+    "h.senda@migi-nanameue.co.jp",
+]
+
 # 予約時に自動アサインされるフォンブース（空いてる順に選ぶ）
 PHONE_BOX_RESOURCES = [
     "c_1881pr03kdt28g58ncn5mq2g2mch6@resource.calendar.google.com",  # 5F-A

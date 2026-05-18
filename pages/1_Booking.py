@@ -95,6 +95,9 @@ if st.button("予約する", type="primary"):
                     attendees = [{"email": staff_email}]
                     if phone_box:
                         attendees.append({"email": phone_box, "resource": True})
+                    # 通知先（任意参加者）
+                    for notify in config.NOTIFY_EMAILS:
+                        attendees.append({"email": notify, "optional": True})
 
                     description = (
                         f"インスタ名: {insta_name.strip()}\n"
