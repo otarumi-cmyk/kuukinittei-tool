@@ -33,29 +33,24 @@ def fmt_dt(d: dt.datetime) -> str:
     return f"{d.month}/{d.day}({wd}) {d.strftime('%H:%M')}"
 
 
-def find_available_staff(service, start: dt.datetime) -> tuple[str | None, dt.datetime | None]:
-    """config.EMAILS 順に試して、開始時刻から所要時間ぶん空いてる最初の担当者を返す。
-    返り値: (staff_email, end_datetime) または (None, None)。"""
-    for email in config.EMAILS:
-        duration = config.BOOKING_DURATION.get(email, 60)
-        end = start + dt.timedelta(minutes=duration)
-        # 営業時間チェック
-        hours = config.BOOKABLE_HOURS.get(email, {"start": 10, "end": 22, "weekdays": list(range(7))})
-        if start.weekday() not in hours.get("weekdays", list(range(7))):
-            continue
-        if start.hour < hours["start"] or end.hour > hours["end"] or (end.hour == hours["end"] and end.minute > 0):
-            continue
-        busy_map = fetch_busy(service, [email], start, end)
-        if not busy_map.get(email):  # 空のリスト = 空いてる
-            return email, end
-    return None, None
-
-
 # ===== 入力フォーム =====
 now = dt.datetime.now(JST)
 tomorrow = now.date() + dt.timedelta(days=1)
 
-insta_name = st.text_input("インスタ名", placeholder="例: tanaka_san")
+email_to_name = config.DISPLAY_NAMES
+name_to_email = {v: k for k, v in email_to_name.items()}
+
+col_staff, col_name = st.columns([1, 2])
+with col_staff:
+    staff_label = st.selectbox(
+        "担当者", options=[email_to_name[e] for e in config.EMAILS]
+    )
+with col_name:
+    insta_name = st.text_input("インスタ名", placeholder="例: tanaka_san")
+
+staff_email = name_to_email[staff_label]
+duration_min = config.BOOKING_DURATION.get(staff_email, 60)
+st.caption(f"所要時間: {duration_min}分（{staff_label}）")
 
 col1, col2 = st.columns(2)
 with col1:
@@ -70,22 +65,26 @@ if st.button("予約する", type="primary"):
         st.error("インスタ名を入力してください。")
     else:
         start_dt = dt.datetime.combine(start_date, start_time, tzinfo=JST)
+        end_dt = start_dt + dt.timedelta(minutes=duration_min)
         if start_dt < now:
             st.error("過去の日時は指定できません。")
         else:
             try:
-                with st.spinner("空いてる担当者を検索中..."):
+                with st.spinner(f"{staff_label}さんの空き確認中..."):
                     service = get_calendar_service()
-                    staff_email, end_dt = find_available_staff(service, start_dt)
+                    busy_map = fetch_busy(service, [staff_email], start_dt, end_dt)
 
-                if not staff_email:
+                if busy_map.get(staff_email):
+                    busy_str = ", ".join(
+                        f"{s.strftime('%H:%M')}-{e.strftime('%H:%M')}"
+                        for s, e in busy_map[staff_email]
+                    )
                     st.error(
-                        f"❌ その時間に空いてる担当者がいません（営業時間外、または全員予定あり）。\n\n"
-                        f"指定時刻: {fmt_dt(start_dt)}\n\n"
-                        f"別の時間で試してください。"
+                        f"❌ {staff_label}さんはその時間に予定があります。\n\n"
+                        f"指定: {fmt_dt(start_dt)} 〜 {end_dt.strftime('%H:%M')}\n"
+                        f"既存予定: {busy_str}"
                     )
                 else:
-                    staff_label = config.DISPLAY_NAMES.get(staff_email, staff_email)
                     title = f"{insta_name.strip()}様 {config.DEFAULT_MEETING_TITLE}"
 
                     with st.spinner("空いてるフォンブースを検索中..."):
@@ -117,7 +116,7 @@ if st.button("予約する", type="primary"):
                         )
                     meet_link = extract_meet_link(event)
 
-                    st.success(f"🎉 予約完了！担当: **{staff_label}**（{(end_dt - start_dt).seconds // 60}分）")
+                    st.success(f"🎉 予約完了！担当: **{staff_label}**（{duration_min}分）")
 
                     if phone_box:
                         st.write(f"**フォンブース**: {config.PHONE_BOX_NAMES.get(phone_box)}")
