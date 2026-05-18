@@ -14,7 +14,11 @@ from ui_helpers import check_password, get_calendar_service
 
 JST = ZoneInfo("Asia/Tokyo")
 
-st.set_page_config(page_title="空き日程ジェネレーター", page_icon="📅")
+st.set_page_config(
+    page_title="空き日程ジェネレーター",
+    page_icon="📅",
+    initial_sidebar_state="expanded",
+)
 st.title("📅 空き日程ジェネレーター")
 st.caption("指定期間の中で、3人のうち誰かが空いてる時間帯をまとめて出します。")
 

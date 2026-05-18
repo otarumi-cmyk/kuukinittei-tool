@@ -16,7 +16,11 @@ from ui_helpers import check_password, get_calendar_service
 JST = ZoneInfo("Asia/Tokyo")
 _WEEKDAYS = ["月", "火", "水", "木", "金", "土", "日"]
 
-st.set_page_config(page_title="予約作成", page_icon="📝")
+st.set_page_config(
+    page_title="予約作成",
+    page_icon="📝",
+    initial_sidebar_state="expanded",
+)
 st.title("📝 予約作成")
 st.caption("担当者の空き枠から1つ選んで予約 → Meetリンク付きでカレンダー登録 → DMコピペ用テキスト生成。")
 
