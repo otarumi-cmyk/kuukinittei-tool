@@ -1,4 +1,4 @@
-"""予約作成: 担当者の空き枠を表示し、選択した枠にMeet付き予定を作成。"""
+"""予約作成: インスタ名と開始日時だけ入力 → 自動で空いてるスタッフとフォンブースを選んで予約。"""
 import datetime as dt
 from zoneinfo import ZoneInfo
 
@@ -10,7 +10,6 @@ from calendar_client import (
     extract_meet_link,
     fetch_busy,
     find_free_resource,
-    generate_candidate_slots,
 )
 from ui_helpers import check_password, get_calendar_service
 
@@ -23,205 +22,121 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 st.title("📝 予約作成")
-st.caption("担当者の空き枠から1つ選んで予約 → Meetリンク付きでカレンダー登録 → DMコピペ用テキスト生成。")
+st.caption("インスタ名と開始日時を入れると、空いてる担当者と所要時間を自動で決めて予約します。")
 
 if not check_password():
     st.stop()
 
 
-def fmt_date(d: dt.date) -> str:
-    return f"{d.month}/{d.day}({_WEEKDAYS[d.weekday()]})"
+def fmt_dt(d: dt.datetime) -> str:
+    wd = _WEEKDAYS[d.weekday()]
+    return f"{d.month}/{d.day}({wd}) {d.strftime('%H:%M')}"
 
 
-def fmt_slot(s: dt.datetime, e: dt.datetime) -> str:
-    return f"{s.strftime('%H:%M')}-{e.strftime('%H:%M')}"
+def find_available_staff(service, start: dt.datetime) -> tuple[str | None, dt.datetime | None]:
+    """config.EMAILS 順に試して、開始時刻から所要時間ぶん空いてる最初の担当者を返す。
+    返り値: (staff_email, end_datetime) または (None, None)。"""
+    for email in config.EMAILS:
+        duration = config.BOOKING_DURATION.get(email, 60)
+        end = start + dt.timedelta(minutes=duration)
+        # 営業時間チェック
+        hours = config.BOOKABLE_HOURS.get(email, {"start": 10, "end": 22, "weekdays": list(range(7))})
+        if start.weekday() not in hours.get("weekdays", list(range(7))):
+            continue
+        if start.hour < hours["start"] or end.hour > hours["end"] or (end.hour == hours["end"] and end.minute > 0):
+            continue
+        busy_map = fetch_busy(service, [email], start, end)
+        if not busy_map.get(email):  # 空のリスト = 空いてる
+            return email, end
+    return None, None
 
 
 # ===== 入力フォーム =====
-today = dt.datetime.now(JST).date()
-default_start = today + dt.timedelta(days=config.BOOKING_DEFAULT_START_OFFSET)
-default_end = default_start + dt.timedelta(days=config.BOOKING_DEFAULT_RANGE_DAYS - 1)
+now = dt.datetime.now(JST)
+tomorrow = now.date() + dt.timedelta(days=1)
 
-email_to_name = config.DISPLAY_NAMES
-name_to_email = {v: k for k, v in email_to_name.items()}
+insta_name = st.text_input("インスタ名", placeholder="例: tanaka_san")
 
-col1, col2 = st.columns([1, 2])
+col1, col2 = st.columns(2)
 with col1:
-    staff_label = st.selectbox(
-        "担当者", options=[email_to_name[e] for e in config.EMAILS]
-    )
+    start_date = st.date_input("開始日", value=tomorrow, min_value=now.date())
 with col2:
-    insta_name = st.text_input("インスタ名（タイトル前置き）", placeholder="例: tanaka_san")
-
-col3, col4 = st.columns([1, 1])
-with col3:
-    title_suffix = st.text_input(
-        "面談タイトル", value=config.DEFAULT_MEETING_TITLE
-    )
-with col4:
-    staff_email = name_to_email[staff_label]
-    default_duration = config.BOOKING_DURATION.get(staff_email, 60)
-    duration = st.number_input(
-        "所要時間（分）", min_value=15, max_value=240, value=default_duration, step=15
+    start_time = st.time_input(
+        "開始時間", value=dt.time(14, 0), step=dt.timedelta(minutes=30)
     )
 
-col5, col6 = st.columns(2)
-with col5:
-    start_date = st.date_input("開始日", value=default_start, min_value=today)
-with col6:
-    end_date = st.date_input("終了日", value=default_end, min_value=today)
-
-hours = config.BOOKABLE_HOURS.get(staff_email, {"start": 10, "end": 22})
-col7, col8 = st.columns(2)
-with col7:
-    work_start = st.number_input(
-        "時間帯 開始（時）", min_value=0, max_value=23, value=hours["start"]
-    )
-with col8:
-    work_end = st.number_input(
-        "時間帯 終了（時）", min_value=1, max_value=24, value=hours["end"]
-    )
-
-# ===== 空き枠取得 =====
-if st.button("空き枠を取得", type="primary"):
-    if start_date > end_date:
-        st.error("開始日は終了日より前の日付にしてください。")
-    elif work_start >= work_end:
-        st.error("時間帯の開始は終了より前にしてください。")
-    elif not insta_name.strip():
+if st.button("予約する", type="primary"):
+    if not insta_name.strip():
         st.error("インスタ名を入力してください。")
     else:
-        try:
-            with st.spinner("カレンダー取得中..."):
-                service = get_calendar_service()
-                tmin = dt.datetime.combine(start_date, dt.time(0, 0), tzinfo=JST)
-                tmax = dt.datetime.combine(end_date, dt.time(23, 59), tzinfo=JST)
-                busy_map = fetch_busy(service, [staff_email], tmin, tmax)
-                slots = generate_candidate_slots(
-                    busy=busy_map.get(staff_email, []),
-                    start_date=start_date,
-                    end_date=end_date,
-                    work_start_hour=int(work_start),
-                    work_end_hour=int(work_end),
-                    duration_minutes=int(duration),
-                    step_minutes=30,
-                    weekdays=hours.get("weekdays"),
-                )
-            st.session_state.candidate_slots = slots
-            st.session_state.staff_email = staff_email
-            st.session_state.staff_label = staff_label
-            st.session_state.insta_name = insta_name.strip()
-            st.session_state.title_suffix = title_suffix.strip() or config.DEFAULT_MEETING_TITLE
-            st.session_state.duration = int(duration)
-            if not slots:
-                st.warning("該当の空き枠が見つかりませんでした。期間や時間帯を広げてみてください。")
-        except Exception as e:
-            st.error(f"エラー: {e}")
-            st.exception(e)
-
-# ===== 空き枠表示と予約確定 =====
-slots = st.session_state.get("candidate_slots", [])
-if slots:
-    st.divider()
-    st.subheader(f"📋 {st.session_state.staff_label} の空き枠（{len(slots)}件）")
-    st.caption(f"クリックすると 「{st.session_state.insta_name}様 {st.session_state.title_suffix}」 として確定します。")
-
-    # 日別にグルーピングして表示
-    by_day: dict[dt.date, list] = {}
-    for s, e in slots:
-        by_day.setdefault(s.date(), []).append((s, e))
-
-    for d, day_slots in by_day.items():
-        st.markdown(f"**{fmt_date(d)}**")
-        cols = st.columns(4)
-        for i, (s, e) in enumerate(day_slots):
-            with cols[i % 4]:
-                if st.button(fmt_slot(s, e), key=f"slot-{s.isoformat()}"):
-                    st.session_state.selected_slot = (s, e)
-
-# ===== 予約確定処理 =====
-if st.session_state.get("selected_slot") and not st.session_state.get("booking_result"):
-    s, e = st.session_state.selected_slot
-    st.divider()
-    title = f"{st.session_state.insta_name}様 {st.session_state.title_suffix}"
-    st.info(
-        f"**確認**\n\n"
-        f"- 担当: {st.session_state.staff_label}\n"
-        f"- タイトル: {title}\n"
-        f"- 日時: {fmt_date(s.date())} {fmt_slot(s, e)}"
-    )
-    confirm_col, cancel_col = st.columns([1, 1])
-    with confirm_col:
-        if st.button("✅ 予約確定", type="primary"):
+        start_dt = dt.datetime.combine(start_date, start_time, tzinfo=JST)
+        if start_dt < now:
+            st.error("過去の日時は指定できません。")
+        else:
             try:
-                with st.spinner("空いてるフォンブース検索中..."):
+                with st.spinner("空いてる担当者を検索中..."):
                     service = get_calendar_service()
-                    phone_box = find_free_resource(
-                        service, config.PHONE_BOX_RESOURCES, s, e
+                    staff_email, end_dt = find_available_staff(service, start_dt)
+
+                if not staff_email:
+                    st.error(
+                        f"❌ その時間に空いてる担当者がいません（営業時間外、または全員予定あり）。\n\n"
+                        f"指定時刻: {fmt_dt(start_dt)}\n\n"
+                        f"別の時間で試してください。"
                     )
-                attendees = [{"email": st.session_state.staff_email}]
-                if phone_box:
-                    attendees.append({"email": phone_box, "resource": True})
-                with st.spinner("予定を作成中..."):
+                else:
+                    staff_label = config.DISPLAY_NAMES.get(staff_email, staff_email)
+                    title = f"{insta_name.strip()}様 {config.DEFAULT_MEETING_TITLE}"
+
+                    with st.spinner("空いてるフォンブースを検索中..."):
+                        phone_box = find_free_resource(
+                            service, config.PHONE_BOX_RESOURCES, start_dt, end_dt
+                        )
+
+                    attendees = [{"email": staff_email}]
+                    if phone_box:
+                        attendees.append({"email": phone_box, "resource": True})
+
                     description = (
-                        f"インスタ名: {st.session_state.insta_name}\n"
-                        f"担当: {st.session_state.staff_label}\n"
+                        f"インスタ名: {insta_name.strip()}\n"
+                        f"担当: {staff_label}\n"
                         + (f"フォンブース: {config.PHONE_BOX_NAMES.get(phone_box, phone_box)}\n" if phone_box else "")
                         + "（kuukinittei ツールから自動作成）"
                     )
-                    # primary (o.tarumi のカレンダー) に作成し、スタッフとフォンブースを招待
-                    event = create_event_with_meet(
-                        service,
-                        calendar_id="primary",
-                        title=title,
-                        start=s,
-                        end=e,
-                        description=description,
-                        attendees=attendees,
-                        send_updates="all",
+
+                    with st.spinner("予定を作成中..."):
+                        event = create_event_with_meet(
+                            service,
+                            calendar_id="primary",
+                            title=title,
+                            start=start_dt,
+                            end=end_dt,
+                            description=description,
+                            attendees=attendees,
+                            send_updates="all",
+                        )
+                    meet_link = extract_meet_link(event)
+
+                    st.success(f"🎉 予約完了！担当: **{staff_label}**（{(end_dt - start_dt).seconds // 60}分）")
+
+                    if phone_box:
+                        st.write(f"**フォンブース**: {config.PHONE_BOX_NAMES.get(phone_box)}")
+                    else:
+                        st.warning("⚠️ 空いてるフォンブースが見つかりませんでした。")
+                    st.write(f"**日時**: {fmt_dt(start_dt)} 〜 {end_dt.strftime('%H:%M')}")
+                    st.write(f"**タイトル**: {title}")
+                    if event.get("htmlLink"):
+                        st.markdown(f"[カレンダーで開く]({event['htmlLink']})")
+
+                    dm_text = (
+                        f"返信ありがとうございます！\n"
+                        f"では、こちらのリンクからお願いいたします！\n\n"
+                        f"日時: {fmt_dt(start_dt)} 〜 {end_dt.strftime('%H:%M')}\n"
+                        f"リンク: {meet_link or '(Meetリンク取得失敗)'}"
                     )
-                st.session_state.booking_result = event
-                st.session_state.phone_box_used = phone_box
+                    st.subheader("📋 DM貼り付け用")
+                    st.code(dm_text, language=None)
+
             except Exception as ex:
                 st.error(f"エラー: {ex}")
                 st.exception(ex)
-    with cancel_col:
-        if st.button("✖️ キャンセル"):
-            st.session_state.selected_slot = None
-            st.rerun()
-
-# ===== 結果表示 =====
-if st.session_state.get("booking_result"):
-    event = st.session_state.booking_result
-    s, e = st.session_state.selected_slot
-    meet_link = extract_meet_link(event)
-
-    st.divider()
-    st.success("🎉 予約完了！")
-
-    phone_box = st.session_state.get("phone_box_used")
-    if phone_box:
-        st.write(f"**フォンブース**: {config.PHONE_BOX_NAMES.get(phone_box, phone_box)}")
-    else:
-        st.warning("⚠️ 空いてるフォンブースが見つかりませんでした。手動で会議室を確保してください。")
-    if meet_link:
-        st.write(f"**Meetリンク**: {meet_link}")
-    st.write(f"**日時**: {fmt_date(s.date())} {fmt_slot(s, e)}")
-    st.write(f"**タイトル**: {event.get('summary')}")
-    if event.get("htmlLink"):
-        st.write(f"[カレンダーで開く]({event['htmlLink']})")
-
-    # DM用テキスト
-    dm_text = (
-        f"返信ありがとうございます！\n"
-        f"では、こちらのリンクからお願いいたします！\n\n"
-        f"日時: {fmt_date(s.date())} {fmt_slot(s, e)}\n"
-        f"リンク: {meet_link or '(Meetリンク取得失敗)'}"
-    )
-    st.subheader("📋 DM貼り付け用")
-    st.code(dm_text, language=None)
-
-    if st.button("🔄 新しい予約を作る"):
-        for k in ("candidate_slots", "selected_slot", "booking_result", "phone_box_used"):
-            st.session_state.pop(k, None)
-        st.rerun()
