@@ -103,9 +103,11 @@ if st.button("候補を生成", type="primary"):
             weekdays = hours.get("weekdays", list(range(7)))
 
             lines: list[str] = []
+            skipped: list[str] = []
             d = start_date
             while d <= end_date:
                 if d.weekday() not in weekdays:
+                    skipped.append(f"{fmt_date(d)}: 営業対象外の曜日")
                     d += dt.timedelta(days=1)
                     continue
                 window_start = dt.datetime.combine(
@@ -117,11 +119,18 @@ if st.button("候補を生成", type="primary"):
                 free = free_within_window(busy, window_start, window_end)
                 # 過去の時間を除外
                 free = [(max(s, now), e) for s, e in free if e > now]
-                # 所要時間未満の細切れを除外
-                free = [(s, e) for s, e in free if (e - s) >= min_td]
-                if free:
-                    ranges = ", ".join(fmt_range(s, e) for s, e in free)
+                long_enough = [(s, e) for s, e in free if (e - s) >= min_td]
+                short_only = [(s, e) for s, e in free if (e - s) < min_td]
+                if long_enough:
+                    ranges = ", ".join(fmt_range(s, e) for s, e in long_enough)
                     lines.append(f"・{fmt_date(d)} {ranges}")
+                elif short_only:
+                    short_ranges = ", ".join(fmt_range(s, e) for s, e in short_only)
+                    skipped.append(
+                        f"{fmt_date(d)}: 細切れの空きのみ ({short_ranges}) — {duration_min}分未満"
+                    )
+                else:
+                    skipped.append(f"{fmt_date(d)}: 予定で埋まっています")
                 d += dt.timedelta(days=1)
 
             if not lines:
@@ -135,6 +144,11 @@ if st.button("候補を生成", type="primary"):
                 )
                 st.subheader("📋 DM貼り付け用")
                 st.code(dm_text, language=None)
+
+            if skipped:
+                with st.expander(f"除外された日（{len(skipped)}件）", expanded=False):
+                    for line in skipped:
+                        st.write(f"- {line}")
         except Exception as ex:
             st.error(f"エラー: {ex}")
             st.exception(ex)
