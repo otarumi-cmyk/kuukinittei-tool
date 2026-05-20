@@ -34,15 +34,9 @@ name_to_email = {v: k for k, v in email_to_name.items()}
 
 today = dt.datetime.now(JST).date()
 
-col_staff, col_n, col_per = st.columns([1, 1, 1])
-with col_staff:
-    staff_label = st.selectbox(
-        "担当者", options=[email_to_name[e] for e in config.EMAILS]
-    )
-with col_n:
-    n_proposals = st.number_input("候補数（最大）", min_value=1, max_value=20, value=5)
-with col_per:
-    per_day = st.number_input("1日あたりの最大枠", min_value=1, max_value=5, value=1)
+staff_label = st.selectbox(
+    "担当者", options=[email_to_name[e] for e in config.EMAILS]
+)
 
 staff_email = name_to_email[staff_label]
 duration_min = config.BOOKING_DURATION.get(staff_email, 60)
@@ -94,17 +88,7 @@ if st.button("候補を生成", type="primary"):
                     weekdays=hours.get("weekdays"),
                 )
 
-            # 1日あたり最大 per_day 枠まで、合計 n_proposals 件まで選ぶ
-            per_date_count: dict[dt.date, int] = {}
-            selected: list[tuple[dt.datetime, dt.datetime]] = []
-            for s, e in all_slots:
-                if len(selected) >= int(n_proposals):
-                    break
-                d = s.date()
-                if per_date_count.get(d, 0) >= int(per_day):
-                    continue
-                selected.append((s, e))
-                per_date_count[d] = per_date_count.get(d, 0) + 1
+            selected = list(all_slots)
 
             if not selected:
                 st.warning("候補が見つかりませんでした。期間や時間帯を広げてみてください。")
