@@ -53,9 +53,9 @@ name_to_email = {v: k for k, v in email_to_name.items()}
 
 today = dt.datetime.now(JST).date()
 
-staff_label = st.selectbox(
-    "担当者", options=[email_to_name[e] for e in config.EMAILS]
-)
+_options = [email_to_name[e] for e in config.EMAILS]
+_default_idx = _options.index("横山") if "横山" in _options else 0
+staff_label = st.selectbox("担当者", options=_options, index=_default_idx)
 staff_email = name_to_email[staff_label]
 duration_min = config.BOOKING_DURATION.get(staff_email, 60)
 hours = config.BOOKABLE_HOURS.get(
