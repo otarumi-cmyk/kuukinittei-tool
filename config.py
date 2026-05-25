@@ -11,6 +11,7 @@ EMAILS = [
     "y.hiraga@migi-nanameue.co.jp",
     "kotaro.suzuki@migi-nanameue.co.jp",
     "d.yokoyama@migi-nanameue.co.jp",
+    "m.inoue@migi-nanameue.co.jp",
 ]
 
 # 表示名（インスタDM用に短く）
@@ -18,6 +19,7 @@ DISPLAY_NAMES = {
     "y.hiraga@migi-nanameue.co.jp": "平賀",
     "kotaro.suzuki@migi-nanameue.co.jp": "鈴木",
     "d.yokoyama@migi-nanameue.co.jp": "横山",
+    "m.inoue@migi-nanameue.co.jp": "愛海",
 }
 
 # 人ごとの最低空き枠（分）— これ未満の細切れ空きは無視
@@ -25,6 +27,7 @@ MIN_SLOT_MINUTES = {
     "y.hiraga@migi-nanameue.co.jp": 90,        # 1.5h
     "kotaro.suzuki@migi-nanameue.co.jp": 90,   # 1.5h
     "d.yokoyama@migi-nanameue.co.jp": 60,      # 1h
+    "m.inoue@migi-nanameue.co.jp": 60,         # 1h
 }
 
 # 営業時間（JST）
@@ -42,6 +45,7 @@ BOOKING_DURATION = {
     "y.hiraga@migi-nanameue.co.jp": 90,
     "kotaro.suzuki@migi-nanameue.co.jp": 90,
     "d.yokoyama@migi-nanameue.co.jp": 60,
+    "m.inoue@migi-nanameue.co.jp": 60,
 }
 
 # 担当者ごとの予約可能時間帯（JST, 24h）と曜日（0=月, 6=日）
@@ -53,6 +57,9 @@ BOOKABLE_HOURS = {
         "start": 10, "end": 22, "weekdays": [0, 1, 2, 3, 4, 5, 6],
     },
     "d.yokoyama@migi-nanameue.co.jp": {
+        "start": 10, "end": 22, "weekdays": [0, 1, 2, 3, 4, 5, 6],
+    },
+    "m.inoue@migi-nanameue.co.jp": {
         "start": 10, "end": 22, "weekdays": [0, 1, 2, 3, 4, 5, 6],
     },
 }
