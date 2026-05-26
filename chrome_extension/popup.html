@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>空き日程ツール</title>
+<link rel="stylesheet" href="popup.css">
+</head>
+<body>
+<div class="tabs">
+  <button class="tab active" data-tab="generator">📅 空き日程</button>
+  <button class="tab" data-tab="suggest">📨 候補提案</button>
+  <button class="tab" data-tab="booking">📝 予約作成</button>
+</div>
+
+<!-- Tab 1: 空き日程ジェネレーター -->
+<section id="tab-generator" class="tab-content active">
+  <div class="row two">
+    <div><label>開始日</label><input type="date" id="gen-start"></div>
+    <div><label>終了日</label><input type="date" id="gen-end"></div>
+  </div>
+  <button class="primary" id="gen-run">生成</button>
+  <div id="gen-status" class="status"></div>
+  <h3>📋 DM貼り付け用（合算）</h3>
+  <pre id="gen-out" class="output"></pre>
+  <button class="copy" data-target="gen-out">コピー</button>
+  <h3>🔍 内訳</h3>
+  <pre id="gen-breakdown" class="output"></pre>
+  <button class="copy" data-target="gen-breakdown">コピー</button>
+</section>
+
+<!-- Tab 2: 候補提案 (Suggest) -->
+<section id="tab-suggest" class="tab-content">
+  <div class="row"><label>担当者</label><select id="sug-staff"></select></div>
+  <div id="sug-duration-hint" class="caption"></div>
+  <div class="row two">
+    <div><label>開始日</label><input type="date" id="sug-start"></div>
+    <div><label>終了日</label><input type="date" id="sug-end"></div>
+  </div>
+  <div class="row two">
+    <div><label>時間帯 開始</label><input type="number" id="sug-h-start" min="0" max="23" value="10"></div>
+    <div><label>時間帯 終了</label><input type="number" id="sug-h-end" min="1" max="24" value="22"></div>
+  </div>
+  <button class="primary" id="sug-run">候補を生成</button>
+  <div id="sug-status" class="status"></div>
+  <h3>📋 DM貼り付け用</h3>
+  <pre id="sug-out" class="output"></pre>
+  <button class="copy" data-target="sug-out">コピー</button>
+  <details id="sug-skipped-wrap" style="display:none;">
+    <summary>除外された日</summary>
+    <ul id="sug-skipped"></ul>
+  </details>
+</section>
+
+<!-- Tab 3: 予約作成 -->
+<section id="tab-booking" class="tab-content">
+  <div class="row two">
+    <div><label>担当者</label><select id="bk-staff"></select></div>
+    <div><label>インスタ名</label><input type="text" id="bk-insta" placeholder="例: tanaka_san"></div>
+  </div>
+  <div id="bk-duration-hint" class="caption"></div>
+  <div class="row two">
+    <div><label>開始日</label><input type="date" id="bk-date"></div>
+    <div><label>開始時間</label><input type="time" id="bk-time" value="14:00" step="1800"></div>
+  </div>
+  <button class="primary" id="bk-run">予約する</button>
+  <div id="bk-status" class="status"></div>
+  <div id="bk-result" class="result"></div>
+  <h3 id="bk-dm-label" style="display:none;">📋 DM貼り付け用</h3>
+  <pre id="bk-dm" class="output"></pre>
+  <button class="copy" data-target="bk-dm" id="bk-copy" style="display:none;">コピー</button>
+</section>
+
+<script type="module" src="popup.js"></script>
+</body>
+</html>

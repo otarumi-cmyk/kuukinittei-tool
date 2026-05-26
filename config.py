@@ -77,6 +77,24 @@ NOTIFY_EMAILS = [
     "h.senda@migi-nanameue.co.jp",
 ]
 
+# ===== DM文言テンプレート（テンプレートページから上書き可能） =====
+# プレースホルダー（{...}）は実際の値に置換される。
+# - Booking: {datetime} {link} {staff} {insta} {title} {phone_box}
+# - Suggest: {slots} {staff} {duration}
+DEFAULT_TEMPLATES = {
+    "booking_dm": (
+        "返信ありがとうございます！\n"
+        "では、こちらのリンクからお願いいたします！\n\n"
+        "日時: {datetime}\n"
+        "リンク: {link}"
+    ),
+    "suggest_dm": (
+        "以下の日程が空いております！\n"
+        "こちらの日程のご都合はいかがでしょうか✨\n\n"
+        "{slots}"
+    ),
+}
+
 # 予約時に自動アサインされるフォンブース（空いてる順に選ぶ）
 PHONE_BOX_RESOURCES = [
     "c_1881pr03kdt28g58ncn5mq2g2mch6@resource.calendar.google.com",  # 5F-A

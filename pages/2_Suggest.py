@@ -6,6 +6,7 @@ import streamlit as st
 
 import config
 from calendar_client import fetch_busy, free_within_window
+from template_store import load_templates, safe_format
 from ui_helpers import check_password, get_calendar_service
 
 JST = ZoneInfo("Asia/Tokyo")
@@ -137,10 +138,11 @@ if st.button("候補を生成", type="primary"):
                 st.warning("候補が見つかりませんでした。期間や時間帯を広げてみてください。")
             else:
                 st.success(f"{len(lines)}日分の候補を生成しました。")
-                dm_text = (
-                    f"以下の日程が空いております！\n"
-                    f"こちらの日程のご都合はいかがでしょうか✨\n\n"
-                    + "\n".join(lines)
+                dm_text = safe_format(
+                    load_templates()["suggest_dm"],
+                    slots="\n".join(lines),
+                    staff=staff_label,
+                    duration=str(duration_min),
                 )
                 st.subheader("📋 DM貼り付け用")
                 st.code(dm_text, language=None)
