@@ -11,6 +11,7 @@ from calendar_client import (
     fetch_busy,
     find_free_resource,
 )
+from template_store import load_templates, safe_format
 from ui_helpers import check_password, get_calendar_service
 
 JST = ZoneInfo("Asia/Tokyo")
@@ -130,11 +131,14 @@ if st.button("予約する", type="primary"):
                     if event.get("htmlLink"):
                         st.markdown(f"[カレンダーで開く]({event['htmlLink']})")
 
-                    dm_text = (
-                        f"返信ありがとうございます！\n"
-                        f"では、こちらのリンクからお願いいたします！\n\n"
-                        f"日時: {fmt_dt(start_dt)} 〜 {end_dt.strftime('%H:%M')}\n"
-                        f"リンク: {meet_link or '(Meetリンク取得失敗)'}"
+                    dm_text = safe_format(
+                        load_templates()["booking_dm"],
+                        datetime=f"{fmt_dt(start_dt)} 〜 {end_dt.strftime('%H:%M')}",
+                        link=meet_link or "(Meetリンク取得失敗)",
+                        staff=staff_label,
+                        insta=insta_name.strip(),
+                        title=title,
+                        phone_box=config.PHONE_BOX_NAMES.get(phone_box, "") if phone_box else "",
                     )
                     st.subheader("📋 DM貼り付け用")
                     st.code(dm_text, language=None)

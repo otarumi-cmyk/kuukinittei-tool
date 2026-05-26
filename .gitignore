@@ -1,6 +1,7 @@
 credentials.json
 client_secret.json
 token.json
+templates.json
 .streamlit/secrets.toml
 *.json
 __pycache__/
