@@ -1,4 +1,5 @@
 """開発用: 全テンプレート一覧 & インライン編集"""
+import datetime
 import streamlit as st
 
 from line_template_store import (
@@ -6,6 +7,7 @@ from line_template_store import (
     load_line_templates,
     save_line_templates,
     reset_line_templates,
+    get_templates_mtime,
 )
 from ui_helpers import check_password
 
@@ -16,14 +18,25 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 st.title("🛠️ テンプレート一括編集")
-st.caption("全テンプレートを一覧表示。文言の修正・タグ編集・削除がその場でできます。")
+st.caption("全テンプレートを一覧表示。文言の修正・タグ編集・削除がその場でできます。保存すると全員に自動反映されます。")
 
 if not check_password():
     st.stop()
 
+# ---------- 自動同期: ファイルが更新されたらセッションを自動リロード ----------
+current_mtime = get_templates_mtime()
+if "dev_mtime" not in st.session_state:
+    st.session_state.dev_mtime = current_mtime
+
+if current_mtime > st.session_state.dev_mtime:
+    st.session_state.dev_templates = load_line_templates()
+    st.session_state.dev_mtime = current_mtime
+    st.toast("🔄 他のメンバーがテンプレートを更新しました！最新版を読み込みました")
+
 # ---------- 読み込み ----------
 if "dev_templates" not in st.session_state:
     st.session_state.dev_templates = load_line_templates()
+    st.session_state.dev_mtime = current_mtime
 
 templates = st.session_state.dev_templates
 cat_labels = {c["id"]: c["label"] for c in CATEGORIES}
@@ -86,7 +99,8 @@ for idx, t in enumerate(pool):
                     x for x in st.session_state.dev_templates if x["id"] != tid
                 ]
                 save_line_templates(st.session_state.dev_templates)
-                st.toast(f"「{t['situation']}」を削除しました")
+                st.session_state.dev_mtime = get_templates_mtime()
+                st.toast(f"「{t['situation']}」を削除しました（全員に反映されます）")
                 st.rerun()
 
         # 編集フォーム
@@ -138,27 +152,37 @@ for idx, t in enumerate(pool):
                         tmpl["category"] = cat_ids.get(new_cat_label, t.get("category"))
                         break
                 save_line_templates(st.session_state.dev_templates)
+                st.session_state.dev_mtime = get_templates_mtime()
                 st.session_state.dev_changed.add(tid)
-                st.toast(f"「{new_sit}」を保存しました ✅")
+                st.toast(f"「{new_sit}」を保存しました ✅（全員に反映されます）")
                 st.rerun()
 
 # ---------- フッター ----------
 st.divider()
+
+# 最終更新タイムスタンプ表示
+mtime = get_templates_mtime()
+if mtime > 0:
+    dt = datetime.datetime.fromtimestamp(mtime)
+    st.caption(f"📄 最終更新: {dt:%m/%d %H:%M} · 保存するとチーム全員に自動反映されます")
+
 col_b1, col_b2, col_b3 = st.columns(3)
 with col_b1:
     changed_count = len(st.session_state.dev_changed)
     if changed_count:
-        st.success(f"🟡 このセッションで {changed_count} 件を編集済み")
+        st.success(f"🟡 このセッションで {changed_count} 件を編集済み（全員に反映済み）")
 with col_b2:
-    if st.button("🔄 ファイルから再読み込み", key="dev_reload"):
+    if st.button("🔄 最新に更新", key="dev_reload"):
         st.session_state.dev_templates = load_line_templates()
+        st.session_state.dev_mtime = get_templates_mtime()
         st.session_state.dev_changed = set()
-        st.toast("再読み込みしました")
+        st.toast("最新版を読み込みました ✅")
         st.rerun()
 with col_b3:
     if st.button("↺ デフォルトに全リセット", key="dev_reset"):
         reset_line_templates()
         st.session_state.dev_templates = load_line_templates()
+        st.session_state.dev_mtime = get_templates_mtime()
         st.session_state.dev_changed = set()
-        st.toast("デフォルトに戻しました")
+        st.toast("デフォルトに戻しました（全員に反映されます）")
         st.rerun()
