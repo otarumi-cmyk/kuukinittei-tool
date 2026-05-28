@@ -32,6 +32,16 @@ if "line_templates" not in st.session_state:
 templates = st.session_state.line_templates
 cat_labels = {c["id"]: c["label"] for c in CATEGORIES}
 
+
+def _split_body(body: str) -> tuple[str, str]:
+    """本文を共感パート(1通目)とクロージングパート(2通目)に分割。
+    最後の空行(\n\n)で分ける。空行がなければ全体を1通目とする。"""
+    pos = body.rfind("\n\n")
+    if pos == -1:
+        return body, ""
+    return body[:pos].strip(), body[pos:].strip()
+
+
 # ===== 検索 =====
 query = st.text_input(
     "相手の返信内容・キーワード",
@@ -76,6 +86,8 @@ st.caption(f"{len(pool)}件のテンプレート")
 for i, t in enumerate(pool):
     cat_name = cat_labels.get(t.get("category", ""), "")
     tags_str = " ".join(f"#{tag}" for tag in t.get("tags", []))
+    part1, part2 = _split_body(t["body"])
+
     with st.container(border=True):
         col_title, col_tags = st.columns([1, 2])
         with col_title:
@@ -83,14 +95,28 @@ for i, t in enumerate(pool):
         with col_tags:
             st.caption(f"{cat_name} · {tags_str}")
 
-        edited = st.text_area(
-            "返信文",
-            value=t["body"],
-            height=200,
-            key=f"line_body_{t['id']}_{i}",
+        # --- 1通目: 共感パート ---
+        st.caption("① 共感（1通目）")
+        edited1 = st.text_area(
+            "1通目",
+            value=part1,
+            height=140,
+            key=f"line_p1_{t['id']}_{i}",
             label_visibility="collapsed",
         )
-        st.code(edited, language=None)
+        st.code(edited1, language=None)
+
+        # --- 2通目: クロージングパート ---
+        if part2:
+            st.caption("② クロージング（2通目）")
+            edited2 = st.text_area(
+                "2通目",
+                value=part2,
+                height=80,
+                key=f"line_p2_{t['id']}_{i}",
+                label_visibility="collapsed",
+            )
+            st.code(edited2, language=None)
 
 # ===== 品質チェックリスト =====
 with st.expander("✅ 品質チェックリスト"):
@@ -110,7 +136,12 @@ with st.expander("🔧 テンプレート管理"):
     )
     new_sit = st.text_input("シチュエーション名", key="line_new_sit")
     new_tags = st.text_input("タグ（カンマ区切り）", key="line_new_tags")
-    new_body = st.text_area("返信テンプレート", height=150, key="line_new_body")
+    new_body = st.text_area("返信テンプレート（1通目）", height=120, key="line_new_body")
+    new_body2 = st.text_area(
+        "クロージング（2通目・空欄なら1通で完結）",
+        height=80,
+        key="line_new_body2",
+    )
 
     if st.button("追加する", type="primary", key="line_add"):
         if new_sit.strip() and new_body.strip():
@@ -119,13 +150,16 @@ with st.expander("🔧 テンプレート管理"):
                 for s in new_tags.replace("、", ",").split(",")
                 if s.strip()
             ]
+            full_body = new_body.strip()
+            if new_body2.strip():
+                full_body += "\n\n" + new_body2.strip()
             st.session_state.line_templates.append(
                 {
                     "id": f"custom_{len(templates)}",
                     "category": new_cat_id,
                     "situation": new_sit.strip(),
                     "tags": tags,
-                    "body": new_body.strip(),
+                    "body": full_body,
                 }
             )
             save_line_templates(st.session_state.line_templates)
