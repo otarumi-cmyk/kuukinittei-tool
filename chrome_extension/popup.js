@@ -17,14 +17,23 @@ import {
   searchTemplates as searchLine,
 } from "./lineTemplateStore.js";
 
-// ===== Tab switching =====
-document.querySelectorAll(".tab").forEach(btn => {
-  btn.addEventListener("click", () => {
-    document.querySelectorAll(".tab").forEach(b => b.classList.remove("active"));
-    document.querySelectorAll(".tab-content").forEach(c => c.classList.remove("active"));
+// ===== Tab switching（最後に開いたタブを記憶） =====
+function switchTab(tabName) {
+  document.querySelectorAll(".tab").forEach(b => b.classList.remove("active"));
+  document.querySelectorAll(".tab-content").forEach(c => c.classList.remove("active"));
+  const btn = document.querySelector(`.tab[data-tab="${tabName}"]`);
+  if (btn) {
     btn.classList.add("active");
-    document.getElementById(`tab-${btn.dataset.tab}`).classList.add("active");
-  });
+    document.getElementById(`tab-${tabName}`).classList.add("active");
+    chrome.storage.local.set({ lastTab: tabName });
+  }
+}
+document.querySelectorAll(".tab").forEach(btn => {
+  btn.addEventListener("click", () => switchTab(btn.dataset.tab));
+});
+// 前回のタブを復元
+chrome.storage.local.get(["lastTab"], (r) => {
+  if (r.lastTab) switchTab(r.lastTab);
 });
 
 // ===== Copy buttons =====
