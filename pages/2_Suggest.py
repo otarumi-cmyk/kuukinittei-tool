@@ -84,6 +84,7 @@ with col_h2:
         "時間帯 終了（時）", min_value=1, max_value=24, value=hours["end"]
     )
 
+exclude_weekends = st.checkbox("土日を除外する", value=True)
 
 if st.button("候補を生成", type="primary"):
     if start_date > end_date:
@@ -102,6 +103,8 @@ if st.button("候補を生成", type="primary"):
             now = dt.datetime.now(JST)
             min_td = dt.timedelta(minutes=duration_min)
             weekdays = hours.get("weekdays", list(range(7)))
+            if exclude_weekends:
+                weekdays = [wd for wd in weekdays if wd not in (5, 6)]
 
             lines: list[str] = []
             skipped: list[str] = []
