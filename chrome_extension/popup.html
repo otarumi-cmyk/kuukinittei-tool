@@ -20,6 +20,10 @@
     <div><label>開始日</label><input type="date" id="gen-start"></div>
     <div><label>終了日</label><input type="date" id="gen-end"></div>
   </div>
+  <div class="row two">
+    <div><label>時間帯 開始</label><input type="number" id="gen-h-start" min="0" max="23" value="10"></div>
+    <div><label>時間帯 終了</label><input type="number" id="gen-h-end" min="1" max="24" value="22"></div>
+  </div>
   <button class="primary" id="gen-run">生成</button>
   <div id="gen-status" class="status"></div>
   <h3>📋 DM貼り付け用（合算）</h3>
