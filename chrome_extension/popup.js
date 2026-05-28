@@ -1,5 +1,21 @@
 import * as cfg from "./config.js";
 import * as cal from "./calendarClient.js";
+import {
+  DEFAULT_TEMPLATES,
+  loadTemplates,
+  resetTemplates,
+  safeFormat,
+  saveTemplates,
+} from "./templateStore.js";
+import {
+  CATEGORIES as LINE_CATEGORIES,
+  QUALITY_CHECKLIST,
+  DEFAULT_LINE_TEMPLATES,
+  loadLineTemplates,
+  saveLineTemplates,
+  resetLineTemplates,
+  searchTemplates as searchLine,
+} from "./lineTemplateStore.js";
 
 // ===== Tab switching =====
 document.querySelectorAll(".tab").forEach(btn => {
@@ -74,7 +90,13 @@ function updateDurationHint(staffEl, hintEl) {
   const name = cfg.DISPLAY_NAMES[email] || email;
   hintEl.textContent = `所要時間: ${dur}分（${name}）`;
 }
-document.getElementById("sug-staff").addEventListener("change", e => updateDurationHint(e.target, document.getElementById("sug-duration-hint")));
+document.getElementById("sug-staff").addEventListener("change", e => {
+  updateDurationHint(e.target, document.getElementById("sug-duration-hint"));
+  // 担当者に応じて時間帯デフォルトを更新
+  const h = cfg.BOOKABLE_HOURS[e.target.value] || { start: 10, end: 22 };
+  document.getElementById("sug-h-start").value = h.start;
+  document.getElementById("sug-h-end").value = h.end;
+});
 document.getElementById("bk-staff").addEventListener("change", e => updateDurationHint(e.target, document.getElementById("bk-duration-hint")));
 updateDurationHint(document.getElementById("sug-staff"), document.getElementById("sug-duration-hint"));
 updateDurationHint(document.getElementById("bk-staff"), document.getElementById("bk-duration-hint"));
@@ -159,6 +181,11 @@ document.getElementById("sug-run").addEventListener("click", async () => {
   const hEnd = parseInt(document.getElementById("sug-h-end").value);
   const dur = cfg.BOOKING_DURATION[staffEmail] || 60;
   const hours = cfg.BOOKABLE_HOURS[staffEmail] || { weekdays: [0,1,2,3,4,5,6] };
+  const noWeekend = document.getElementById("sug-no-weekend").checked;
+  let allowedWeekdays = [...hours.weekdays];
+  if (noWeekend) {
+    allowedWeekdays = allowedWeekdays.filter(wd => wd !== 5 && wd !== 6);
+  }
 
   setStatus(status, "カレンダー取得中…", "loading");
   try {
@@ -176,7 +203,7 @@ document.getElementById("sug-run").addEventListener("click", async () => {
       const dayD = cal.dateAtJst(cur.year, cur.month, cur.day);
       const wd = cal.toJstParts(dayD).weekday;
       const dateLbl = cal.fmtDateJst(dayD);
-      if (!hours.weekdays.includes(wd)) {
+      if (!allowedWeekdays.includes(wd)) {
         skipped.push(`${dateLbl}: 営業対象外の曜日`);
       } else {
         const ws = cal.dateAtJst(cur.year, cur.month, cur.day, hStart, 0);
@@ -203,7 +230,12 @@ document.getElementById("sug-run").addEventListener("click", async () => {
     if (!lines.length) {
       setStatus(status, "候補が見つかりませんでした。", "error");
     } else {
-      out.textContent = `以下の日程が空いております！\nこちらの日程のご都合はいかがでしょうか✨\n\n${lines.join("\n")}`;
+      const tpl = (await loadTemplates()).suggest_dm;
+      out.textContent = safeFormat(tpl, {
+        slots: lines.join("\n"),
+        staff: cfg.DISPLAY_NAMES[staffEmail] || staffEmail,
+        duration: String(dur),
+      });
       setStatus(status, `${lines.length}日分の候補を生成しました。`, "ok");
     }
     if (skipped.length) {
@@ -290,13 +322,274 @@ document.getElementById("bk-run").addEventListener("click", async () => {
       `<div><strong>タイトル:</strong> ${title}</div>` +
       (event.htmlLink ? `<div><a href="${event.htmlLink}" target="_blank">カレンダーで開く</a></div>` : "");
 
-    dm.textContent =
-      `返信ありがとうございます！\nでは、こちらのリンクからお願いいたします！\n\n` +
-      `日時: ${cal.fmtDateJst(startDt)} ${cal.fmtHmJst(startDt)} 〜 ${cal.fmtHmJst(endDt)}\n` +
-      `リンク: ${meetLink || "(Meetリンク取得失敗)"}`;
+    const tpl = (await loadTemplates()).booking_dm;
+    dm.textContent = safeFormat(tpl, {
+      datetime: `${cal.fmtDateJst(startDt)} ${cal.fmtHmJst(startDt)} 〜 ${cal.fmtHmJst(endDt)}`,
+      link: meetLink || "(Meetリンク取得失敗)",
+      staff: staffName,
+      insta: instaName,
+      title,
+      phone_box: phoneBox ? cfg.PHONE_BOX_NAMES[phoneBox] : "",
+    });
     dmLabel.style.display = "block";
     copyBtn.style.display = "inline-block";
   } catch (err) {
     setStatus(status, `エラー: ${err.message}`, "error");
   }
 });
+
+// ===== Tab 4: テンプレート =====
+async function initTemplatesTab() {
+  const tpl = await loadTemplates();
+  document.getElementById("tpl-booking").value = tpl.booking_dm;
+  document.getElementById("tpl-suggest").value = tpl.suggest_dm;
+}
+initTemplatesTab();
+
+document.getElementById("tpl-save").addEventListener("click", async () => {
+  const booking = document.getElementById("tpl-booking").value;
+  const suggest = document.getElementById("tpl-suggest").value;
+  await saveTemplates({ booking_dm: booking, suggest_dm: suggest });
+  setStatus(document.getElementById("tpl-status"), "✓ 保存しました（このChromeでのみ有効）", "ok");
+});
+
+document.getElementById("tpl-reset").addEventListener("click", async () => {
+  await resetTemplates();
+  document.getElementById("tpl-booking").value = DEFAULT_TEMPLATES.booking_dm;
+  document.getElementById("tpl-suggest").value = DEFAULT_TEMPLATES.suggest_dm;
+  setStatus(document.getElementById("tpl-status"), "↺ デフォルトに戻しました", "ok");
+});
+
+// ===== Tab 5: LINE返信補助 =====
+let _lineTemplates = [];
+let _activeCategory = null;   // null = 全て
+let _activeSituation = null;  // null = フィルタなし
+
+async function initLineTab() {
+  _lineTemplates = await loadLineTemplates();
+  renderLineCategories();
+  renderLineSituations();
+  renderLineResults(_lineTemplates);
+  renderLineMgmtList();
+  renderQualityChecklist();
+}
+
+function escHtml(s) {
+  const d = document.createElement("div");
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+// --- カテゴリバー ---
+function renderLineCategories() {
+  const container = document.getElementById("line-categories");
+  container.innerHTML = "";
+  const allBtn = document.createElement("button");
+  allBtn.className = "line-cat-btn" + (_activeCategory === null ? " active" : "");
+  allBtn.textContent = "全て";
+  allBtn.addEventListener("click", () => {
+    _activeCategory = null;
+    _activeSituation = null;
+    document.getElementById("line-search").value = "";
+    renderLineCategories();
+    renderLineSituations();
+    renderLineResults(_lineTemplates);
+  });
+  container.appendChild(allBtn);
+
+  for (const cat of LINE_CATEGORIES) {
+    const btn = document.createElement("button");
+    btn.className = "line-cat-btn" + (_activeCategory === cat.id ? " active" : "");
+    btn.textContent = cat.label;
+    btn.addEventListener("click", () => {
+      _activeCategory = _activeCategory === cat.id ? null : cat.id;
+      _activeSituation = null;
+      document.getElementById("line-search").value = "";
+      renderLineCategories();
+      renderLineSituations();
+      doLineFilter();
+    });
+    container.appendChild(btn);
+  }
+}
+
+// --- シチュエーション タグ ---
+function renderLineSituations() {
+  const container = document.getElementById("line-situations");
+  container.innerHTML = "";
+  const pool = _activeCategory
+    ? _lineTemplates.filter(t => t.category === _activeCategory)
+    : _lineTemplates;
+
+  for (const t of pool) {
+    const btn = document.createElement("button");
+    btn.className = "line-tag" + (_activeSituation === t.id ? " active" : "");
+    btn.textContent = t.situation;
+    btn.addEventListener("click", () => {
+      if (_activeSituation === t.id) {
+        _activeSituation = null;
+        doLineFilter();
+      } else {
+        _activeSituation = t.id;
+        renderLineResults([t]);
+      }
+      renderLineSituations();
+    });
+    container.appendChild(btn);
+  }
+}
+
+// --- フィルタ / 検索 ---
+function doLineFilter() {
+  const query = document.getElementById("line-search").value.trim();
+  let pool = _activeCategory
+    ? _lineTemplates.filter(t => t.category === _activeCategory)
+    : [..._lineTemplates];
+  if (_activeSituation) {
+    pool = pool.filter(t => t.id === _activeSituation);
+  }
+  if (query) {
+    pool = searchLine(pool, query);
+  }
+  renderLineResults(pool);
+}
+
+// --- 結果カード描画 ---
+function renderLineResults(results) {
+  const container = document.getElementById("line-results");
+  const countEl = document.getElementById("line-results-count");
+  container.innerHTML = "";
+  countEl.textContent = results.length
+    ? `${results.length}件のテンプレート`
+    : "一致するテンプレートがありません";
+
+  for (const t of results) {
+    const card = document.createElement("div");
+    card.className = "line-card";
+
+    const header = document.createElement("div");
+    header.className = "line-card-header";
+    const catLabel = (LINE_CATEGORIES.find(c => c.id === t.category) || {}).label || "";
+    header.innerHTML =
+      `<strong>${escHtml(t.situation)}</strong>` +
+      `<span class="line-card-tags">${catLabel ? catLabel + " · " : ""}${t.tags.map(tag => "#" + escHtml(tag)).join(" ")}</span>`;
+
+    const textarea = document.createElement("textarea");
+    textarea.className = "ta";
+    textarea.rows = 7;
+    textarea.value = t.body;
+
+    const actions = document.createElement("div");
+    actions.className = "line-card-actions";
+    const copyBtn = document.createElement("button");
+    copyBtn.className = "copy";
+    copyBtn.textContent = "コピー";
+    copyBtn.addEventListener("click", async () => {
+      await navigator.clipboard.writeText(textarea.value);
+      copyBtn.classList.add("copied");
+      copyBtn.textContent = "✓ コピー済";
+      setTimeout(() => {
+        copyBtn.classList.remove("copied");
+        copyBtn.textContent = "コピー";
+      }, 1500);
+    });
+    actions.appendChild(copyBtn);
+
+    card.appendChild(header);
+    card.appendChild(textarea);
+    card.appendChild(actions);
+    container.appendChild(card);
+  }
+}
+
+// --- 品質チェックリスト ---
+function renderQualityChecklist() {
+  const ul = document.getElementById("line-quality-checklist");
+  ul.innerHTML = "";
+  for (const item of QUALITY_CHECKLIST) {
+    const li = document.createElement("li");
+    li.textContent = item;
+    ul.appendChild(li);
+  }
+}
+
+// --- テンプレ管理 ---
+function renderLineMgmtList() {
+  const container = document.getElementById("line-mgmt-list");
+  const countEl = document.getElementById("line-mgmt-count");
+  container.innerHTML = "";
+  countEl.textContent = _lineTemplates.length;
+
+  for (const t of _lineTemplates) {
+    const item = document.createElement("div");
+    item.className = "line-mgmt-item";
+    const info = document.createElement("div");
+    info.className = "line-mgmt-item-info";
+    const catLabel = (LINE_CATEGORIES.find(c => c.id === t.category) || {}).label || "";
+    info.innerHTML =
+      `<div class="mgmt-title">${escHtml(t.situation)}</div>` +
+      `<div class="mgmt-tags">${catLabel} · ${t.tags.map(tag => "#" + escHtml(tag)).join(" ")}</div>`;
+    const delBtn = document.createElement("button");
+    delBtn.className = "line-del";
+    delBtn.textContent = "削除";
+    delBtn.addEventListener("click", async () => {
+      _lineTemplates = _lineTemplates.filter(x => x.id !== t.id);
+      await saveLineTemplates(_lineTemplates);
+      renderLineMgmtList();
+      renderLineSituations();
+      doLineFilter();
+      setStatus(document.getElementById("line-mgmt-status"), `「${t.situation}」を削除しました`, "ok");
+    });
+    item.appendChild(info);
+    item.appendChild(delBtn);
+    container.appendChild(item);
+  }
+}
+
+// --- イベント ---
+document.getElementById("line-search").addEventListener("input", () => {
+  _activeSituation = null;
+  renderLineSituations();
+  doLineFilter();
+});
+
+document.getElementById("line-add-btn").addEventListener("click", async () => {
+  const catEl = document.getElementById("line-new-cat");
+  const sitEl = document.getElementById("line-new-situation");
+  const tagsEl = document.getElementById("line-new-tags");
+  const bodyEl = document.getElementById("line-new-body");
+  const situation = sitEl.value.trim();
+  const tags = tagsEl.value.split(/[,、\s]+/).map(s => s.trim()).filter(Boolean);
+  const body = bodyEl.value.trim();
+  if (!situation || !body) {
+    setStatus(document.getElementById("line-mgmt-status"), "シチュエーション名と本文は必須です", "error");
+    return;
+  }
+  _lineTemplates.push({
+    id: "custom_" + Date.now(),
+    category: catEl.value,
+    situation,
+    tags,
+    body,
+  });
+  await saveLineTemplates(_lineTemplates);
+  sitEl.value = ""; tagsEl.value = ""; bodyEl.value = "";
+  renderLineMgmtList();
+  renderLineSituations();
+  doLineFilter();
+  setStatus(document.getElementById("line-mgmt-status"), `「${situation}」を追加しました`, "ok");
+});
+
+document.getElementById("line-reset-btn").addEventListener("click", async () => {
+  await resetLineTemplates();
+  _lineTemplates = DEFAULT_LINE_TEMPLATES.map(t => ({ ...t }));
+  _activeCategory = null;
+  _activeSituation = null;
+  renderLineCategories();
+  renderLineSituations();
+  renderLineResults(_lineTemplates);
+  renderLineMgmtList();
+  setStatus(document.getElementById("line-mgmt-status"), "↺ デフォルトに戻しました", "ok");
+});
+
+initLineTab();

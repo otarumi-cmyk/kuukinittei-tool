@@ -1,0 +1,406 @@
+// LINE返信テンプレート管理（chrome.storage.local）
+// ウィズバディLINE返信ガイドに準拠
+const STORAGE_KEY = "kuukinittei_line_templates";
+
+export const CATEGORIES = [
+  { id: "relationship", label: "人間関係" },
+  { id: "conditions",   label: "労働条件" },
+  { id: "career",       label: "キャリア" },
+  { id: "life",         label: "ライフイベント" },
+  { id: "anxiety",      label: "不安・迷い" },
+];
+
+// 共通クロージング（デフォルトテンプレート生成用）
+const CL = "\n\nお仕事や今後のことについて、今の状況を一度お聞かせいただければと思います☺️\nかしこまった場ではないので、ざっくばらんにお話ししましょう！\n当日はラフな服装で大丈夫ですし、予定が合わなくなった場合は別日で調整できます🙆‍♀️";
+
+export const DEFAULT_LINE_TEMPLATES = [
+  // ===== 人間関係系 =====
+  {
+    id: "rel_boss_strict", category: "relationship",
+    situation: "上司がきつい",
+    tags: ["上司", "きつい", "厳しい", "怖い"],
+    body: "上司の方との関係でかなり気を遣われているんですね😭\n毎日関わる相手だからこそ、そこが合わないと負担も大きいと思います。" + CL,
+  },
+  {
+    id: "rel_boss_annoying", category: "relationship",
+    situation: "上司がうざい",
+    tags: ["上司", "うざい", "ストレス", "嫌", "むかつく"],
+    body: "上司の方とのやり取りで、かなりストレスが溜まっているんですね😭\n気を遣い続けるのは本当に大変ですよね。" + CL,
+  },
+  {
+    id: "rel_powerharassment", category: "relationship",
+    situation: "パワハラっぽい",
+    tags: ["パワハラ", "ハラスメント", "暴言", "怒鳴"],
+    body: "そのような言い方をされる環境だと、かなり気持ちが削られますよね…😭\nお仕事に向かう前から気が重くなることもあると思います。" + CL,
+  },
+  {
+    id: "rel_scolded", category: "relationship",
+    situation: "怒られることが多い",
+    tags: ["怒られる", "叱られる", "ミス", "失敗"],
+    body: "毎日のように怒られるのは、かなり気持ちが削られますよね😭\nがんばっているからこそ、認められないとしんどくなると思います。" + CL,
+  },
+  {
+    id: "rel_tired", category: "relationship",
+    situation: "人間関係がしんどい",
+    tags: ["人間関係", "しんどい", "疲れた", "つらい"],
+    body: "職場の人間関係がしんどいと、毎日出勤するだけでもかなり負担ですよね😭\n仕事そのものより、人間関係で疲れてしまうこともありますよね。" + CL,
+  },
+  {
+    id: "rel_isolated", category: "relationship",
+    situation: "職場で孤立している",
+    tags: ["孤立", "ひとり", "馴染めない", "話せない"],
+    body: "職場で孤立してしまっている状況は、かなりしんどいですよね😭\n周りに頼れる人がいない環境だと、気持ちの逃げ場もなくなりますよね。" + CL,
+  },
+  {
+    id: "rel_senpai", category: "relationship",
+    situation: "先輩が怖い",
+    tags: ["先輩", "怖い", "威圧", "萎縮"],
+    body: "先輩の方との関係で、かなり気を遣われているんですね😭\n毎日顔を合わせる相手だからこそ、そこが合わないと気持ち的にもしんどいですよね。" + CL,
+  },
+  {
+    id: "rel_atmosphere", category: "relationship",
+    situation: "職場の空気が悪い",
+    tags: ["空気", "雰囲気", "ピリピリ", "居心地"],
+    body: "職場の雰囲気が悪いと、仕事以前に居るだけで疲れますよね😭\nそういった環境が続くと、気持ち的にもかなり消耗すると思います。" + CL,
+  },
+  {
+    id: "rel_manager", category: "relationship",
+    situation: "店長や責任者と合わない",
+    tags: ["店長", "責任者", "合わない", "マネージャー"],
+    body: "店長（責任者）の方と合わないと、毎日のお仕事がかなりしんどいですよね😭\n直属の方だからこそ、逃げ場がないのも負担が大きいと思います。" + CL,
+  },
+  {
+    id: "rel_otsubone", category: "relationship",
+    situation: "お局や女性関係がしんどい",
+    tags: ["お局", "女性", "派閥", "陰口", "いじめ"],
+    body: "職場の人間関係、特に女性同士のやり取りで気を遣い続けるのは本当に大変ですよね😭\n気持ちが削られる環境だと、仕事に集中するのも難しくなりますよね。" + CL,
+  },
+
+  // ===== 労働条件系 =====
+  {
+    id: "cond_overtime", category: "conditions",
+    situation: "残業が多い",
+    tags: ["残業", "長時間", "帰れない", "終わらない"],
+    body: "残業が多いと、自分の時間がなかなか取れないですよね😭\n疲れが抜けないまま次の日を迎えるのも、かなり負担だと思います。" + CL,
+  },
+  {
+    id: "cond_fewdays", category: "conditions",
+    situation: "休みが少ない",
+    tags: ["休み", "少ない", "週休", "休日"],
+    body: "お休みが少ないと、心も体もなかなかリセットできないですよね😭\n働き続ける中で、休みの取りやすさは大事にしたいところですよね。" + CL,
+  },
+  {
+    id: "cond_lowpay", category: "conditions",
+    situation: "給料が低い",
+    tags: ["給料", "低い", "安い", "収入", "手取り"],
+    body: "頑張って働いているのに収入面で満足できないのは、かなりモヤモヤしますよね😭\n生活や将来のことを考えると、収入面は大事にしたいところだと思います。" + CL,
+  },
+  {
+    id: "cond_overtime_lowpay", category: "conditions",
+    situation: "残業が多いのに給料が少ない",
+    tags: ["残業", "給料", "見合わない", "割に合わない"],
+    body: "残業が多いのに収入に見合っていないと感じるのは、かなりしんどいですよね😭\n時間も体力も使っているのに報われない感覚は、モチベーションにも影響しますよね。" + CL,
+  },
+  {
+    id: "cond_nightshift", category: "conditions",
+    situation: "夜勤がきつい",
+    tags: ["夜勤", "夜", "体調", "リズム"],
+    body: "夜勤が続くと、体のリズムが崩れてかなりしんどいですよね😭\n体力的にも精神的にも、無理なく続けられるかは大事だと思います。" + CL,
+  },
+  {
+    id: "cond_dayshift", category: "conditions",
+    situation: "日勤にしたい",
+    tags: ["日勤", "昼", "生活リズム"],
+    body: "日勤で働きたいというお気持ち、よくわかります☺️\n生活リズムを整えたいというのは、今後のことを考えるとすごく大事ですよね。" + CL,
+  },
+  {
+    id: "cond_shift_unstable", category: "conditions",
+    situation: "シフトが不安定",
+    tags: ["シフト", "不安定", "バラバラ", "予定"],
+    body: "シフトが安定しないと、先の予定も立てづらくて大変ですよね😭\n生活のリズムが作りにくい環境は、気持ち的にも負担が大きいと思います。" + CL,
+  },
+  {
+    id: "cond_weekend", category: "conditions",
+    situation: "土日休みがいい",
+    tags: ["土日", "休み", "週末", "カレンダー通り"],
+    body: "土日にお休みが欲しいというお気持ち、よくわかります☺️\nプライベートや周りの人との時間を考えると、休みの曜日は大事ですよね。" + CL,
+  },
+  {
+    id: "cond_no_consecutive", category: "conditions",
+    situation: "連休が取れない",
+    tags: ["連休", "まとまった休み", "旅行"],
+    body: "連休が取れないと、しっかり休めた感じがしないですよね😭\nまとまったお休みがないと、リフレッシュもなかなか難しいと思います。" + CL,
+  },
+  {
+    id: "cond_physical", category: "conditions",
+    situation: "体力的にしんどい",
+    tags: ["体力", "きつい", "肉体", "疲れる", "体"],
+    body: "体力的にしんどい状態が続くと、気持ちにも余裕がなくなりますよね😭\n無理なく続けられるかは、長い目で見ると大事にしたいところですよね。" + CL,
+  },
+  {
+    id: "cond_commute", category: "conditions",
+    situation: "通勤が長い",
+    tags: ["通勤", "遠い", "電車", "片道", "時間かかる"],
+    body: "通勤に時間がかかると、それだけで毎日の負担が大きいですよね😭\n往復の時間がもったいないと感じるのも、当然だと思います。" + CL,
+  },
+  {
+    id: "cond_paid_leave", category: "conditions",
+    situation: "有給が取りづらい",
+    tags: ["有給", "休めない", "取りづらい", "言いづらい"],
+    body: "有給が取りづらい環境は、気持ち的にもかなり負担ですよね😭\n休みたい時に休めないのは、長く働いていく上でしんどいと思います。" + CL,
+  },
+
+  // ===== キャリア変更系 =====
+  {
+    id: "career_up", category: "career",
+    situation: "キャリアアップしたい",
+    tags: ["キャリアアップ", "成長", "ステップアップ", "レベルアップ"],
+    body: "キャリアアップを考えているんですね、すごく前向きで素敵です✨\n今の環境でもっとできることがあるのか、新しい環境に行くべきか、考えることもありますよね。" + CL,
+  },
+  {
+    id: "career_skill", category: "career",
+    situation: "スキルアップしたい",
+    tags: ["スキル", "スキルアップ", "勉強", "学びたい", "身につけたい"],
+    body: "スキルアップしたいというお気持ち、とても良いですね✨\n今後のために自分の力を伸ばしていきたいという姿勢、すごく大事だと思います。" + CL,
+  },
+  {
+    id: "career_qualification", category: "career",
+    situation: "資格を活かしたい",
+    tags: ["資格", "活かす", "持っている", "免許"],
+    body: "せっかく取った資格を活かしたいというお気持ち、よくわかります✨\nそれを活かせる環境で働けたら、やりがいも変わってきますよね。" + CL,
+  },
+  {
+    id: "career_growth_env", category: "career",
+    situation: "もっと成長できる環境に行きたい",
+    tags: ["成長", "環境", "物足りない", "もっと"],
+    body: "もっと成長できる環境を求めているんですね✨\n今の環境に物足りなさを感じるのは、それだけ向上心がある証拠だと思います。" + CL,
+  },
+  {
+    id: "career_income_up", category: "career",
+    situation: "年収を上げたい",
+    tags: ["年収", "給与", "上げたい", "稼ぎたい", "収入アップ"],
+    body: "収入面をもっと良くしたいというお気持ち、大事にしたいところですよね✨\n今後の生活やキャリアを考えると、収入は重要なポイントだと思います。" + CL,
+  },
+  {
+    id: "career_new", category: "career",
+    situation: "新しいことをしたい",
+    tags: ["新しい", "挑戦", "変えたい", "違うこと"],
+    body: "新しいことに挑戦したいと思えているの、すごく良いですね✨\n今の環境に違和感があるからこそ、次を考えたくなることもありますよね。" + CL,
+  },
+  {
+    id: "career_inexperienced", category: "career",
+    situation: "未経験に挑戦したい",
+    tags: ["未経験", "挑戦", "初めて", "やったことない"],
+    body: "未経験の分野に挑戦してみたいというお気持ち、素敵ですね✨\n新しい一歩を踏み出したいと思っている時って、不安もあると思います。" + CL,
+  },
+  {
+    id: "career_boring", category: "career",
+    situation: "今の仕事がつまらない",
+    tags: ["つまらない", "やりがい", "飽きた", "面白くない"],
+    body: "今のお仕事にやりがいを感じにくくなっているんですね。\n毎日同じことの繰り返しだと、気持ち的にもしんどくなりますよね😭" + CL,
+  },
+  {
+    id: "career_manufacturing", category: "career",
+    situation: "製造業がつまらない",
+    tags: ["製造", "工場", "ライン", "単調"],
+    body: "製造のお仕事に対して、物足りなさを感じているんですね。\n同じ作業が続くと、このままでいいのかなと考えることもありますよね😭" + CL,
+  },
+  {
+    id: "career_office", category: "career",
+    situation: "事務職に興味がある",
+    tags: ["事務", "デスクワーク", "オフィス", "PC"],
+    body: "事務職に興味をお持ちなんですね✨\n今の働き方から変えてみたいと思う気持ち、よくわかります。" + CL,
+  },
+  {
+    id: "career_fulltime", category: "career",
+    situation: "正社員になりたい",
+    tags: ["正社員", "安定", "社員", "雇用"],
+    body: "正社員として働きたいというお気持ち、とても大事だと思います✨\n安定した働き方を目指しているんですね。" + CL,
+  },
+  {
+    id: "career_freeter", category: "career",
+    situation: "フリーターから変えたい",
+    tags: ["フリーター", "バイト", "アルバイト", "変えたい"],
+    body: "今の状況を変えたいと思って動こうとしているの、すごく良いですね✨\n一歩踏み出そうとしている気持ち、大事にしたいですよね。" + CL,
+  },
+  {
+    id: "career_dispatch", category: "career",
+    situation: "派遣から正社員になりたい",
+    tags: ["派遣", "正社員", "切り替え", "直接雇用"],
+    body: "派遣から正社員を目指したいというお気持ち、よくわかります✨\n安定した環境で長く働きたいというのは、今後のことを考えると大事ですよね。" + CL,
+  },
+  {
+    id: "career_hesitant", category: "career",
+    situation: "転職するか迷っている",
+    tags: ["迷い", "転職", "どうしよう", "決められない"],
+    body: "転職するかどうか迷っている時って、いろんな気持ちが出てきますよね🥲\n今すぐ何かを決める必要はないので、今の状況をそのままお聞かせいただければ大丈夫です。\n\nお仕事や今後のことについて、まずは一度お話しできればと思います☺️\nかしこまった場ではないので、ざっくばらんにお話ししましょう！\n当日はラフな服装で大丈夫ですし、予定が合わなくなった場合は別日で調整できます🙆‍♀️",
+  },
+  {
+    id: "career_lost", category: "career",
+    situation: "何がしたいかわからない",
+    tags: ["わからない", "迷子", "方向性", "やりたいこと"],
+    body: "何がしたいかまだはっきりしていなくても、全然大丈夫ですよ☺️\nそういった方もたくさんいらっしゃるので、今の状況をそのままお聞かせいただければ大丈夫です✨\n\nかしこまった場ではないので、ざっくばらんにお話ししましょう！\n当日はラフな服装で大丈夫ですし、予定が合わなくなった場合は別日で調整できます🙆‍♀️",
+  },
+
+  // ===== ライフイベント系 =====
+  {
+    id: "life_marriage", category: "life",
+    situation: "彼氏との結婚を考えている",
+    tags: ["結婚", "彼氏", "将来", "パートナー"],
+    body: "今後の結婚や生活のことを考えて、働き方を見直したいんですね☺️\n将来のことまで考えて動こうとしているの、すごく大事だと思います。" + CL,
+  },
+  {
+    id: "life_after_marriage", category: "life",
+    situation: "結婚後も続けやすい仕事に就きたい",
+    tags: ["結婚後", "続けやすい", "両立", "家庭"],
+    body: "結婚後も無理なく続けられるお仕事を考えているんですね☺️\n長い目で見て続けやすい環境って、大事にしたいところですよね。" + CL,
+  },
+  {
+    id: "life_parents_pressure", category: "life",
+    situation: "親に言われて焦っている",
+    tags: ["親", "家族", "焦り", "言われた", "プレッシャー"],
+    body: "ご家族からの言葉で焦る気持ち、よくわかります🥲\n周りから言われると、余計にプレッシャーを感じますよね。" + CL,
+  },
+  {
+    id: "life_bf_pressure", category: "life",
+    situation: "彼氏に言われて焦っている",
+    tags: ["彼氏", "言われた", "焦り", "プレッシャー"],
+    body: "パートナーの方からの言葉がきっかけで、いろいろ考え始めたんですね。\n大切な人に言われると、気持ちが揺れることもありますよね🥲" + CL,
+  },
+  {
+    id: "life_stability", category: "life",
+    situation: "将来のために安定したい",
+    tags: ["将来", "安定", "長期", "先のこと"],
+    body: "将来のことを考えて安定した環境を求めているんですね✨\n先のことを見据えて動こうとしているの、すごく大事だと思います。" + CL,
+  },
+  {
+    id: "life_income", category: "life",
+    situation: "収入や生活をちゃんとしたい",
+    tags: ["収入", "生活", "ちゃんと", "自立", "お金"],
+    body: "収入や生活面をしっかりさせたいというお気持ち、とても大事ですね✨\n今後のことを考えると、安定した収入は大事にしたいところですよね。" + CL,
+  },
+
+  // ===== 不安・迷い系 =====
+  {
+    id: "anx_quit_now", category: "anxiety",
+    situation: "今すぐ辞めたい",
+    tags: ["辞めたい", "すぐ", "限界", "もう無理"],
+    body: "今すぐにでも辞めたいくらい、かなりしんどい状況なんですね😭\nその状況が続くのは本当につらいと思います。\n\nお仕事や今後のことについて、今の状況を一度お聞かせいただければと思います☺️\n今すぐ何かを決める場ではないので、ざっくばらんにお話ししましょう！\n無理のないお時間で大丈夫ですし、予定が合わなくなった場合は別日で調整できます🙆‍♀️",
+  },
+  {
+    id: "anx_blank", category: "anxiety",
+    situation: "ブランクがあって不安",
+    tags: ["ブランク", "空白", "離職", "久しぶり"],
+    body: "ブランクがあると不安になりますよね🥲\nでも、そういった方もたくさんいらっしゃるので、安心してくださいね。\n\nお仕事や今後のことについて、今の状況をそのままお聞かせいただければ大丈夫です☺️\nかしこまった場ではないので、ざっくばらんにお話ししましょう！\n当日はラフな服装で大丈夫ですし、予定が合わなくなった場合は別日で調整できます🙆‍♀️",
+  },
+  {
+    id: "anx_what_to_say", category: "anxiety",
+    situation: "何を話せばいいかわからない",
+    tags: ["話す", "わからない", "準備", "内容"],
+    body: "何を話せばいいか考えなくて大丈夫ですよ☺️\n特に準備していただくこともないので、今思っていることをそのままお聞かせいただければ大丈夫です✨\n\nかしこまった場ではないので、ざっくばらんにお話ししましょう！\n当日はラフな服装で大丈夫ですし、予定が合わなくなった場合は別日で調整できます🙆‍♀️",
+  },
+  {
+    id: "anx_nervous", category: "anxiety",
+    situation: "お話しするのが不安",
+    tags: ["不安", "緊張", "怖い", "心配"],
+    body: "不安に思われるのは当然だと思います☺️\nかしこまった場ではないので、気負わずに来ていただければ大丈夫です✨\n\n今すぐ何かを決める場ではないので、ざっくばらんにお話ししましょう！\n当日はラフな服装で大丈夫ですし、予定が合わなくなった場合は別日で調整できます🙆‍♀️",
+  },
+  {
+    id: "anx_schedule_hard", category: "anxiety",
+    situation: "日程が合わなさそう",
+    tags: ["日程", "合わない", "忙しい", "時間ない"],
+    body: "お忙しい中ありがとうございます☺️\n無理のないお時間で大丈夫ですし、平日の夜や土日でもお話しできます✨\n\nご都合の良い日程をいくつかいただければ、こちらで調整いたしますね🙆‍♀️",
+  },
+  {
+    id: "anx_confirmed", category: "anxiety",
+    situation: "予定確定後",
+    tags: ["確定", "決まった", "予約", "了解"],
+    body: "ありがとうございます！\nでは、以下の日程で確定させていただきますね☺️\n\n日時: \nリンク: \n\nかしこまった場ではないので、ざっくばらんにお話ししましょう！\n当日はラフな服装で大丈夫ですし、予定が合わなくなった場合は別日で調整できます🙆‍♀️",
+  },
+  {
+    id: "anx_reminder", category: "anxiety",
+    situation: "当日リマインド",
+    tags: ["リマインド", "当日", "今日", "本日"],
+    body: "本日はよろしくお願いいたします☺️\n\nお時間になりましたら、こちらのリンクからご参加ください✨\n\nリンク: \n\n気負わずに来ていただければ大丈夫ですので、ざっくばらんにお話ししましょう🙆‍♀️",
+  },
+  {
+    id: "anx_reschedule", category: "anxiety",
+    situation: "リスケ希望",
+    tags: ["リスケ", "変更", "別日", "ずらし", "キャンセル"],
+    body: "承知しました！全然大丈夫ですよ☺️\n別の日程で調整させていただきますね✨\n\nご都合の良い日程をいくつかいただければ、こちらで調整いたします🙆‍♀️",
+  },
+  {
+    id: "anx_no_reply", category: "anxiety",
+    situation: "返信が止まりそう",
+    tags: ["返信なし", "既読", "止まった", "フォロー"],
+    body: "先日はご連絡いただきありがとうございました☺️\nその後、お仕事の状況はいかがでしょうか？\n\nもしまだお話しされたい気持ちがあれば、いつでもお気軽にご連絡くださいね✨\nご都合の良いタイミングで大丈夫です🙆‍♀️",
+  },
+];
+
+// 品質チェックリスト
+export const QUALITY_CHECKLIST = [
+  "「面談」「相談」を使っていないか",
+  "「普通に」を使っていないか",
+  "相手の状況を決めつけていないか",
+  "転職を強く勧めていないか",
+  "求人紹介のように見えていないか",
+  "抽象的な「整理する」に逃げていないか",
+  "友達ノリになりすぎていないか",
+  "絵文字が3〜5個入っているか",
+  "「ラフな服装」「別日調整」が入っているか",
+  "「ざっくばらんにお話ししましょう」が入っているか",
+  "ユーザーの発言をちゃんと拾っているか",
+];
+
+// ===== CRUD =====
+export function loadLineTemplates() {
+  return new Promise((resolve) => {
+    chrome.storage.local.get([STORAGE_KEY], (result) => {
+      const saved = result[STORAGE_KEY];
+      resolve(
+        Array.isArray(saved) && saved.length > 0
+          ? saved
+          : DEFAULT_LINE_TEMPLATES.map((t) => ({ ...t }))
+      );
+    });
+  });
+}
+
+export function saveLineTemplates(templates) {
+  return new Promise((resolve) => {
+    chrome.storage.local.set({ [STORAGE_KEY]: templates }, resolve);
+  });
+}
+
+export function resetLineTemplates() {
+  return new Promise((resolve) => {
+    chrome.storage.local.remove([STORAGE_KEY], resolve);
+  });
+}
+
+/**
+ * キーワード検索。タグ > シチュエーション名 > 本文 の優先度でスコアリング。
+ */
+export function searchTemplates(templates, query) {
+  if (!query.trim()) return [...templates];
+  const keywords = query
+    .trim()
+    .toLowerCase()
+    .split(/[\s,、]+/)
+    .filter(Boolean);
+  const scored = templates.map((t) => {
+    let score = 0;
+    const tagStr = t.tags.join(" ").toLowerCase();
+    const sitStr = t.situation.toLowerCase();
+    const bodyStr = t.body.toLowerCase();
+    for (const kw of keywords) {
+      if (tagStr.includes(kw)) score += 3;
+      if (sitStr.includes(kw)) score += 2;
+      if (bodyStr.includes(kw)) score += 1;
+    }
+    return { ...t, _score: score };
+  });
+  return scored
+    .filter((t) => t._score > 0)
+    .sort((a, b) => b._score - a._score);
+}

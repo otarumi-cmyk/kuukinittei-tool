@@ -34,7 +34,7 @@ export const BOOKABLE_HOURS = {
   "y.hiraga@migi-nanameue.co.jp": { start: 10, end: 22, weekdays: [0,1,2,3,4,5,6] },
   "kotaro.suzuki@migi-nanameue.co.jp": { start: 10, end: 22, weekdays: [0,1,2,3,4,5,6] },
   "d.yokoyama@migi-nanameue.co.jp": { start: 10, end: 22, weekdays: [0,1,2,3,4,5,6] },
-  "m.inoue@migi-nanameue.co.jp": { start: 10, end: 22, weekdays: [0,1,2,3,4,5,6] },
+  "m.inoue@migi-nanameue.co.jp": { start: 10, end: 24, weekdays: [0,1,2,3,4,5,6] },
 };
 
 export const DEFAULT_MEETING_TITLE = "初回面談";

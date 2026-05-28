@@ -10,6 +10,8 @@
   <button class="tab active" data-tab="generator">📅 空き日程</button>
   <button class="tab" data-tab="suggest">📨 候補提案</button>
   <button class="tab" data-tab="booking">📝 予約作成</button>
+  <button class="tab" data-tab="line">💬 LINE</button>
+  <button class="tab" data-tab="templates">✏️ テンプレ</button>
 </div>
 
 <!-- Tab 1: 空き日程ジェネレーター -->
@@ -40,6 +42,10 @@
     <div><label>時間帯 開始</label><input type="number" id="sug-h-start" min="0" max="23" value="10"></div>
     <div><label>時間帯 終了</label><input type="number" id="sug-h-end" min="1" max="24" value="22"></div>
   </div>
+  <div class="row" style="flex-direction:row; align-items:center; gap:6px;">
+    <input type="checkbox" id="sug-no-weekend" checked>
+    <label for="sug-no-weekend" style="font-size:13px; color:#eee; cursor:pointer;">土日を除外する</label>
+  </div>
   <button class="primary" id="sug-run">候補を生成</button>
   <div id="sug-status" class="status"></div>
   <h3>📋 DM貼り付け用</h3>
@@ -68,6 +74,67 @@
   <h3 id="bk-dm-label" style="display:none;">📋 DM貼り付け用</h3>
   <pre id="bk-dm" class="output"></pre>
   <button class="copy" data-target="bk-dm" id="bk-copy" style="display:none;">コピー</button>
+</section>
+
+<!-- Tab 5: LINE返信補助 -->
+<section id="tab-line" class="tab-content">
+  <div class="row">
+    <label>相手の返信内容・キーワード</label>
+    <input type="text" id="line-search" placeholder="例: 上司がきつい、残業多い、キャンセル...">
+  </div>
+  <div id="line-categories" class="line-category-bar"></div>
+  <div id="line-situations" class="line-tag-cloud"></div>
+  <div id="line-results-count" class="caption"></div>
+  <div id="line-results"></div>
+
+  <details style="margin-top:12px;">
+    <summary>✅ 品質チェックリスト</summary>
+    <ul id="line-quality-checklist"></ul>
+  </details>
+
+  <details id="line-mgmt" style="margin-top:8px;">
+    <summary>🔧 テンプレート管理</summary>
+    <div style="margin-top:8px;">
+      <h3>➕ 新規追加</h3>
+      <div class="row">
+        <label>カテゴリ</label>
+        <select id="line-new-cat">
+          <option value="relationship">人間関係</option>
+          <option value="conditions">労働条件</option>
+          <option value="career">キャリア</option>
+          <option value="life">ライフイベント</option>
+          <option value="anxiety">不安・迷い</option>
+        </select>
+      </div>
+      <div class="row"><label>シチュエーション名</label><input type="text" id="line-new-situation" placeholder="例: 上司との関係"></div>
+      <div class="row"><label>タグ（カンマ区切り）</label><input type="text" id="line-new-tags" placeholder="例: 上司,人間関係,ストレス"></div>
+      <div class="row"><label>返信テンプレート</label><textarea id="line-new-body" rows="5" class="ta" placeholder="返信文を入力..."></textarea></div>
+      <button class="primary" id="line-add-btn">追加する</button>
+      <div id="line-mgmt-status" class="status"></div>
+      <h3 style="margin-top:14px;">📝 登録済み（<span id="line-mgmt-count">0</span>件）</h3>
+      <div id="line-mgmt-list"></div>
+      <button class="copy" id="line-reset-btn" style="margin-top:8px;">↺ デフォルトに戻す</button>
+    </div>
+  </details>
+</section>
+
+<!-- Tab 4: テンプレ -->
+<section id="tab-templates" class="tab-content">
+  <p class="caption">DM文言をブラウザに保存できます（このChrome内でのみ有効）。プレースホルダー <code>{...}</code> は生成時に実際の値に置換されます。</p>
+
+  <h3>📝 Booking（予約完了後のDM）</h3>
+  <p class="caption">利用可: <code>{datetime}</code> <code>{link}</code> <code>{staff}</code> <code>{insta}</code> <code>{title}</code> <code>{phone_box}</code></p>
+  <textarea id="tpl-booking" rows="6" class="ta"></textarea>
+
+  <h3>📨 Suggest（候補日程DM）</h3>
+  <p class="caption">利用可: <code>{slots}</code> <code>{staff}</code> <code>{duration}</code></p>
+  <textarea id="tpl-suggest" rows="6" class="ta"></textarea>
+
+  <div class="row two" style="margin-top:10px;">
+    <button class="primary" id="tpl-save">💾 保存</button>
+    <button class="copy" id="tpl-reset">↺ デフォルトに戻す</button>
+  </div>
+  <div id="tpl-status" class="status"></div>
 </section>
 
 <script type="module" src="popup.js"></script>

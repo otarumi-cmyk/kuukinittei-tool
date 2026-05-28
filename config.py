@@ -60,7 +60,7 @@ BOOKABLE_HOURS = {
         "start": 10, "end": 22, "weekdays": [0, 1, 2, 3, 4, 5, 6],
     },
     "m.inoue@migi-nanameue.co.jp": {
-        "start": 10, "end": 22, "weekdays": [0, 1, 2, 3, 4, 5, 6],
+        "start": 10, "end": 24, "weekdays": [0, 1, 2, 3, 4, 5, 6],
     },
 }
 
