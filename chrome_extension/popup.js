@@ -371,6 +371,83 @@ document.getElementById("tpl-reset").addEventListener("click", async () => {
   setStatus(document.getElementById("tpl-status"), "↺ デフォルトに戻しました", "ok");
 });
 
+// ===== 状態保存・復元 =====
+const _PERSIST_KEY = "uiState";
+let _saveTimer = null;
+
+function saveUiState() {
+  // デバウンス: 300ms以内の連続変更をまとめる
+  clearTimeout(_saveTimer);
+  _saveTimer = setTimeout(() => {
+    const state = {
+      lineSearch: document.getElementById("line-search").value,
+      lineCategory: _activeCategory,
+      lineSituation: _activeSituation,
+      genStart: document.getElementById("gen-start").value,
+      genEnd: document.getElementById("gen-end").value,
+      genHStart: document.getElementById("gen-h-start").value,
+      genHEnd: document.getElementById("gen-h-end").value,
+      sugStaff: document.getElementById("sug-staff").value,
+      sugStart: document.getElementById("sug-start").value,
+      sugEnd: document.getElementById("sug-end").value,
+      sugHStart: document.getElementById("sug-h-start").value,
+      sugHEnd: document.getElementById("sug-h-end").value,
+      sugNoWeekend: document.getElementById("sug-no-weekend").checked,
+      bkStaff: document.getElementById("bk-staff").value,
+      bkInsta: document.getElementById("bk-insta").value,
+      bkDate: document.getElementById("bk-date").value,
+      bkTime: document.getElementById("bk-time").value,
+    };
+    chrome.storage.local.set({ [_PERSIST_KEY]: state });
+  }, 300);
+}
+
+async function restoreUiState() {
+  return new Promise((resolve) => {
+    chrome.storage.local.get([_PERSIST_KEY], (r) => {
+      const s = r[_PERSIST_KEY];
+      if (!s) { resolve(false); return; }
+      // フォーム値を復元
+      if (s.genStart) document.getElementById("gen-start").value = s.genStart;
+      if (s.genEnd) document.getElementById("gen-end").value = s.genEnd;
+      if (s.genHStart) document.getElementById("gen-h-start").value = s.genHStart;
+      if (s.genHEnd) document.getElementById("gen-h-end").value = s.genHEnd;
+      if (s.sugStaff) document.getElementById("sug-staff").value = s.sugStaff;
+      if (s.sugStart) document.getElementById("sug-start").value = s.sugStart;
+      if (s.sugEnd) document.getElementById("sug-end").value = s.sugEnd;
+      if (s.sugHStart) document.getElementById("sug-h-start").value = s.sugHStart;
+      if (s.sugHEnd) document.getElementById("sug-h-end").value = s.sugHEnd;
+      if (s.sugNoWeekend !== undefined) document.getElementById("sug-no-weekend").checked = s.sugNoWeekend;
+      if (s.bkStaff) document.getElementById("bk-staff").value = s.bkStaff;
+      if (s.bkInsta) document.getElementById("bk-insta").value = s.bkInsta;
+      if (s.bkDate) document.getElementById("bk-date").value = s.bkDate;
+      if (s.bkTime) document.getElementById("bk-time").value = s.bkTime;
+      // LINE状態
+      if (s.lineSearch) document.getElementById("line-search").value = s.lineSearch;
+      _activeCategory = s.lineCategory || null;
+      _activeSituation = s.lineSituation || null;
+      resolve(true);
+    });
+  });
+}
+
+// 全入力にchangeリスナーをつけて自動保存
+function setupAutosave() {
+  const ids = [
+    "gen-start", "gen-end", "gen-h-start", "gen-h-end",
+    "sug-staff", "sug-start", "sug-end", "sug-h-start", "sug-h-end", "sug-no-weekend",
+    "bk-staff", "bk-insta", "bk-date", "bk-time",
+    "line-search",
+  ];
+  for (const id of ids) {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener("input", saveUiState);
+      el.addEventListener("change", saveUiState);
+    }
+  }
+}
+
 // ===== Tab 5: LINE返信補助 =====
 let _lineTemplates = [];
 let _activeCategory = null;   // null = 全て
@@ -378,11 +455,17 @@ let _activeSituation = null;  // null = フィルタなし
 
 async function initLineTab() {
   _lineTemplates = await loadLineTemplates();
+  const restored = await restoreUiState();
   renderLineCategories();
   renderLineSituations();
-  renderLineResults(_lineTemplates);
+  if (restored && (document.getElementById("line-search").value || _activeCategory || _activeSituation)) {
+    doLineFilter();
+  } else {
+    renderLineResults(_lineTemplates);
+  }
   renderLineMgmtList();
   renderQualityChecklist();
+  setupAutosave();
 }
 
 function escHtml(s) {
@@ -405,6 +488,7 @@ function renderLineCategories() {
     renderLineCategories();
     renderLineSituations();
     renderLineResults(_lineTemplates);
+    saveUiState();
   });
   container.appendChild(allBtn);
 
@@ -419,6 +503,7 @@ function renderLineCategories() {
       renderLineCategories();
       renderLineSituations();
       doLineFilter();
+      saveUiState();
     });
     container.appendChild(btn);
   }
@@ -445,6 +530,7 @@ function renderLineSituations() {
         renderLineResults([t]);
       }
       renderLineSituations();
+      saveUiState();
     });
     container.appendChild(btn);
   }
@@ -629,10 +715,12 @@ document.getElementById("line-reset-btn").addEventListener("click", async () => 
   _lineTemplates = DEFAULT_LINE_TEMPLATES.map(t => ({ ...t }));
   _activeCategory = null;
   _activeSituation = null;
+  document.getElementById("line-search").value = "";
   renderLineCategories();
   renderLineSituations();
   renderLineResults(_lineTemplates);
   renderLineMgmtList();
+  saveUiState();
   setStatus(document.getElementById("line-mgmt-status"), "↺ デフォルトに戻しました", "ok");
 });
 
