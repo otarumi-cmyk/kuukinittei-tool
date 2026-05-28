@@ -80,7 +80,7 @@
 <section id="tab-line" class="tab-content">
   <div class="row">
     <label>相手の返信内容・キーワード</label>
-    <input type="text" id="line-search" placeholder="例: 上司がきつい、残業多い、キャンセル...">
+    <input type="text" id="line-search" placeholder="例: 上司がきつい、残業多い、リスケ...">
   </div>
   <div id="line-categories" class="line-category-bar"></div>
   <div id="line-situations" class="line-tag-cloud"></div>
@@ -104,11 +104,14 @@
           <option value="career">キャリア</option>
           <option value="life">ライフイベント</option>
           <option value="anxiety">不安・迷い</option>
+          <option value="jobs">職種別</option>
+          <option value="reschedule">リスケ対応</option>
         </select>
       </div>
       <div class="row"><label>シチュエーション名</label><input type="text" id="line-new-situation" placeholder="例: 上司との関係"></div>
       <div class="row"><label>タグ（カンマ区切り）</label><input type="text" id="line-new-tags" placeholder="例: 上司,人間関係,ストレス"></div>
-      <div class="row"><label>返信テンプレート</label><textarea id="line-new-body" rows="5" class="ta" placeholder="返信文を入力..."></textarea></div>
+      <div class="row"><label>① 共感（1通目）</label><textarea id="line-new-body1" rows="4" class="ta" placeholder="共感パートを入力..."></textarea></div>
+      <div class="row"><label>② クロージング（2通目）</label><textarea id="line-new-body2" rows="4" class="ta" placeholder="クロージングパートを入力..."></textarea></div>
       <button class="primary" id="line-add-btn">追加する</button>
       <div id="line-mgmt-status" class="status"></div>
       <h3 style="margin-top:14px;">📝 登録済み（<span id="line-mgmt-count">0</span>件）</h3>

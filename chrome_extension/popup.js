@@ -454,7 +454,32 @@ function doLineFilter() {
   renderLineResults(pool);
 }
 
-// --- 結果カード描画 ---
+// --- テンプレを1通目・2通目に分割 ---
+function splitBody(body) {
+  // 最後の \n\n で分割して共感パート(1通目)とクロージング(2通目)に分ける
+  const idx = body.lastIndexOf("\n\n");
+  if (idx === -1) return { part1: body, part2: "" };
+  return { part1: body.substring(0, idx), part2: body.substring(idx + 2) };
+}
+
+// --- コピーボタンのヘルパー ---
+function makeCopyBtn(getText, label = "コピー") {
+  const btn = document.createElement("button");
+  btn.className = "line-copy-btn";
+  btn.textContent = label;
+  btn.addEventListener("click", async () => {
+    await navigator.clipboard.writeText(getText());
+    btn.classList.add("copied");
+    btn.textContent = "✓ コピー済";
+    setTimeout(() => {
+      btn.classList.remove("copied");
+      btn.textContent = label;
+    }, 1500);
+  });
+  return btn;
+}
+
+// --- 結果カード描画（2通分割UI） ---
 function renderLineResults(results) {
   const container = document.getElementById("line-results");
   const countEl = document.getElementById("line-results-count");
@@ -464,40 +489,68 @@ function renderLineResults(results) {
     : "一致するテンプレートがありません";
 
   for (const t of results) {
+    const { part1, part2 } = splitBody(t.body);
+
     const card = document.createElement("div");
     card.className = "line-card";
 
+    // ヘッダー
     const header = document.createElement("div");
     header.className = "line-card-header";
     const catLabel = (LINE_CATEGORIES.find(c => c.id === t.category) || {}).label || "";
     header.innerHTML =
       `<strong>${escHtml(t.situation)}</strong>` +
       `<span class="line-card-tags">${catLabel ? catLabel + " · " : ""}${t.tags.map(tag => "#" + escHtml(tag)).join(" ")}</span>`;
-
-    const textarea = document.createElement("textarea");
-    textarea.className = "ta";
-    textarea.rows = 7;
-    textarea.value = t.body;
-
-    const actions = document.createElement("div");
-    actions.className = "line-card-actions";
-    const copyBtn = document.createElement("button");
-    copyBtn.className = "copy";
-    copyBtn.textContent = "コピー";
-    copyBtn.addEventListener("click", async () => {
-      await navigator.clipboard.writeText(textarea.value);
-      copyBtn.classList.add("copied");
-      copyBtn.textContent = "✓ コピー済";
-      setTimeout(() => {
-        copyBtn.classList.remove("copied");
-        copyBtn.textContent = "コピー";
-      }, 1500);
-    });
-    actions.appendChild(copyBtn);
-
     card.appendChild(header);
-    card.appendChild(textarea);
-    card.appendChild(actions);
+
+    // 1通目
+    const sec1 = document.createElement("div");
+    sec1.className = "line-part";
+    const lbl1 = document.createElement("div");
+    lbl1.className = "line-part-label line-part-label-1";
+    lbl1.textContent = "① 共感（1通目）";
+    sec1.appendChild(lbl1);
+    const ta1 = document.createElement("textarea");
+    ta1.className = "ta line-part-ta";
+    ta1.rows = 4;
+    ta1.value = part1;
+    sec1.appendChild(ta1);
+    const act1 = document.createElement("div");
+    act1.className = "line-part-actions";
+    act1.appendChild(makeCopyBtn(() => ta1.value, "1通目をコピー"));
+    sec1.appendChild(act1);
+    card.appendChild(sec1);
+
+    // 2通目（ある場合のみ）
+    if (part2) {
+      const sec2 = document.createElement("div");
+      sec2.className = "line-part";
+      const lbl2 = document.createElement("div");
+      lbl2.className = "line-part-label line-part-label-2";
+      lbl2.textContent = "② クロージング（2通目）";
+      sec2.appendChild(lbl2);
+      const ta2 = document.createElement("textarea");
+      ta2.className = "ta line-part-ta";
+      ta2.rows = 4;
+      ta2.value = part2;
+      sec2.appendChild(ta2);
+      const act2 = document.createElement("div");
+      act2.className = "line-part-actions";
+      act2.appendChild(makeCopyBtn(() => ta2.value, "2通目をコピー"));
+      sec2.appendChild(act2);
+      card.appendChild(sec2);
+    }
+
+    // 全文コピー
+    const actAll = document.createElement("div");
+    actAll.className = "line-card-actions";
+    actAll.appendChild(makeCopyBtn(() => {
+      // textarea の現在値を結合
+      const texts = card.querySelectorAll(".line-part-ta");
+      return Array.from(texts).map(el => el.value).join("\n\n");
+    }, "全文コピー"));
+    card.appendChild(actAll);
+
     container.appendChild(card);
   }
 }
@@ -557,14 +610,17 @@ document.getElementById("line-add-btn").addEventListener("click", async () => {
   const catEl = document.getElementById("line-new-cat");
   const sitEl = document.getElementById("line-new-situation");
   const tagsEl = document.getElementById("line-new-tags");
-  const bodyEl = document.getElementById("line-new-body");
+  const body1El = document.getElementById("line-new-body1");
+  const body2El = document.getElementById("line-new-body2");
   const situation = sitEl.value.trim();
   const tags = tagsEl.value.split(/[,、\s]+/).map(s => s.trim()).filter(Boolean);
-  const body = bodyEl.value.trim();
-  if (!situation || !body) {
-    setStatus(document.getElementById("line-mgmt-status"), "シチュエーション名と本文は必須です", "error");
+  const p1 = body1El.value.trim();
+  const p2 = body2El.value.trim();
+  if (!situation || !p1) {
+    setStatus(document.getElementById("line-mgmt-status"), "シチュエーション名と1通目は必須です", "error");
     return;
   }
+  const body = p2 ? p1 + "\n\n" + p2 : p1;
   _lineTemplates.push({
     id: "custom_" + Date.now(),
     category: catEl.value,
@@ -573,7 +629,7 @@ document.getElementById("line-add-btn").addEventListener("click", async () => {
     body,
   });
   await saveLineTemplates(_lineTemplates);
-  sitEl.value = ""; tagsEl.value = ""; bodyEl.value = "";
+  sitEl.value = ""; tagsEl.value = ""; body1El.value = ""; body2El.value = "";
   renderLineMgmtList();
   renderLineSituations();
   doLineFilter();
