@@ -109,6 +109,8 @@ document.getElementById("gen-run").addEventListener("click", async () => {
   out.textContent = ""; brk.textContent = "";
   const startD = parseDateInput(document.getElementById("gen-start").value);
   const endD = parseDateInput(document.getElementById("gen-end").value);
+  const genHStart = parseInt(document.getElementById("gen-h-start").value, 10) || 10;
+  const genHEnd = parseInt(document.getElementById("gen-h-end").value, 10) || 22;
   setStatus(status, "カレンダー取得中…", "loading");
   try {
     const tmin = cal.dateAtJst(startD.year, startD.month, startD.day, 0, 0);
@@ -127,8 +129,8 @@ document.getElementById("gen-run").addEventListener("click", async () => {
       const perPerson = {};
       for (const email of cfg.EMAILS) {
         const minMin = cfg.MIN_SLOT_MINUTES[email] || 0;
-        const ws = cal.dateAtJst(cur.year, cur.month, cur.day, 10, 0);
-        const we = cal.dateAtJst(cur.year, cur.month, cur.day, 22, 0);
+        const ws = cal.dateAtJst(cur.year, cur.month, cur.day, genHStart, 0);
+        const we = cal.dateAtJst(cur.year, cur.month, cur.day, genHEnd, 0);
         const busy = busyMap[email] || [];
         const free = cal.freeWithinWindow(busy, ws, we);
         const filtered = free.filter(([s, e]) => (e - s) >= minMin * 60000);
