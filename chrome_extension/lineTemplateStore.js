@@ -3054,21 +3054,43 @@ const _SYNONYM_MAP = (() => {
   return map;
 })();
 
-function _expandKeywords(keywords) {
-  const expanded = new Set(keywords);
-  for (const kw of keywords) {
-    // 完全一致
-    if (_SYNONYM_MAP[kw]) {
-      for (const syn of _SYNONYM_MAP[kw]) expanded.add(syn);
-    }
-    // 部分一致: kw が長い場合、キーが含まれていれば展開（例: "ブラック企業" → "ブラック" のシノニム）
-    for (const key of Object.keys(_SYNONYM_MAP)) {
-      if (key.length >= 2 && kw.length >= 2 && kw !== key && kw.includes(key)) {
-        for (const syn of _SYNONYM_MAP[key]) expanded.add(syn);
+/**
+ * クエリから複数のコンセプトグループを抽出する。
+ * 例: "ブラックなのに給料が少ない"
+ *   → グループ1: {激務, ブラック, 残業, ...}
+ *   → グループ2: {給料, 給与, 月給, ...}
+ */
+function _extractConceptGroups(query) {
+  const q = query.toLowerCase();
+  const groups = [];
+  const matchedIndices = new Set();
+
+  for (let idx = 0; idx < SYNONYM_GROUPS.length; idx++) {
+    const grp = SYNONYM_GROUPS[idx];
+    for (const word of grp) {
+      if (q.includes(word.toLowerCase())) {
+        if (!matchedIndices.has(idx)) {
+          matchedIndices.add(idx);
+          groups.push(new Set(grp.map((w) => w.toLowerCase())));
+        }
+        break;
       }
     }
   }
-  return [...expanded];
+
+  // スペース区切りの単語でグループに属さないものがあれば独立グループとして追加
+  const rawWords = q.split(/[\s,、]+/).filter(Boolean);
+  for (const rw of rawWords) {
+    const inExisting = groups.some((cg) => cg.has(rw));
+    if (!inExisting) {
+      groups.push(new Set([rw]));
+    }
+  }
+
+  if (groups.length === 0) {
+    groups.push(new Set([q]));
+  }
+  return groups;
 }
 
 // ===== CRUD =====
@@ -3098,30 +3120,43 @@ export function resetLineTemplates() {
 }
 
 /**
- * キーワード検索（類義語・表記揺れ自動展開つき）。
- * タグ > シチュエーション名 > 本文 の優先度でスコアリング。
+ * 複数コンセプト対応の関連度スコアリング検索。
+ *
+ * スコアの考え方:
+ *   1次ソート: マッチしたコンセプトグループ数（多いほど上位）
+ *   2次ソート: 各グループ内のキーワードヒット詳細スコア
+ *     - タグ一致: +3, シチュエーション名一致: +2, 本文一致: +1
  */
 export function searchTemplates(templates, query) {
   if (!query.trim()) return [...templates];
-  const rawKeywords = query
-    .trim()
-    .toLowerCase()
-    .split(/[\s,、]+/)
-    .filter(Boolean);
-  const keywords = _expandKeywords(rawKeywords);
-  const scored = templates.map((t) => {
-    let score = 0;
-    const tagStr = t.tags.join(" ").toLowerCase();
-    const sitStr = t.situation.toLowerCase();
-    const bodyStr = t.body.toLowerCase();
-    for (const kw of keywords) {
-      if (tagStr.includes(kw)) score += 3;
-      if (sitStr.includes(kw)) score += 2;
-      if (bodyStr.includes(kw)) score += 1;
+
+  const conceptGroups = _extractConceptGroups(query);
+
+  const scored = [];
+  for (const t of templates) {
+    const tagStr = (t.tags || []).join(" ").toLowerCase();
+    const sitStr = (t.situation || "").toLowerCase();
+    const bodyStr = (t.body || "").toLowerCase();
+
+    let groupsMatched = 0;
+    let detailScore = 0;
+
+    for (const cg of conceptGroups) {
+      let groupHit = false;
+      for (const kw of cg) {
+        let hit = false;
+        if (tagStr.includes(kw)) { detailScore += 3; hit = true; }
+        if (sitStr.includes(kw)) { detailScore += 2; hit = true; }
+        if (bodyStr.includes(kw)) { detailScore += 1; hit = true; }
+        if (hit) groupHit = true;
+      }
+      if (groupHit) groupsMatched++;
     }
-    return { ...t, _score: score };
-  });
-  return scored
-    .filter((t) => t._score > 0)
-    .sort((a, b) => b._score - a._score);
+
+    if (groupsMatched > 0) {
+      scored.push({ ...t, _score: groupsMatched * 10000 + detailScore });
+    }
+  }
+
+  return scored.sort((a, b) => b._score - a._score);
 }

@@ -693,36 +693,87 @@ for _grp in _SYNONYM_GROUPS:
             _SYNONYM_MAP[_k].add(_o.lower())
 
 
-def _expand_keywords(keywords: list[str]) -> list[str]:
-    expanded = set(keywords)
-    for kw in keywords:
-        if kw in _SYNONYM_MAP:
-            expanded.update(_SYNONYM_MAP[kw])
-        for key, syns in _SYNONYM_MAP.items():
-            if len(key) >= 2 and len(kw) >= 2 and kw != key and key in kw:
-                expanded.update(syns)
-    return list(expanded)
+def _extract_concept_groups(query: str) -> list[set[str]]:
+    """クエリ文字列から複数のコンセプトグループを抽出する。
+
+    例: "ブラックなのに給料が少ない"
+      → グループ1: {激務, ブラック, 残業, ...}  (労働強度)
+      → グループ2: {給料, 給与, 月給, ...}      (給与系)
+      → グループ3: {休み, 少ない, ...}           (休み系)
+
+    各グループは類義語辞書の1グループに対応。
+    """
+    q = query.lower()
+    groups: list[set[str]] = []
+    matched_indices: set[int] = set()
+
+    # 類義語グループのどれかのキーワードがクエリに含まれていればそのグループを採用
+    for idx, grp in enumerate(_SYNONYM_GROUPS):
+        for word in grp:
+            if word.lower() in q:
+                if idx not in matched_indices:
+                    matched_indices.add(idx)
+                    groups.append(set(w.lower() for w in grp))
+                break
+
+    # スペース区切りの単語でグループに属さないものがあれば独立グループとして追加
+    raw_words = [kw for kw in q.replace("、", " ").replace(",", " ").split() if kw]
+    for rw in raw_words:
+        in_existing = any(rw in cg for cg in groups)
+        if not in_existing:
+            groups.append({rw})
+
+    # 何も見つからなければクエリ全体を1グループにフォールバック
+    if not groups:
+        groups.append({q})
+
+    return groups
 
 
 def search_templates(templates: list[dict], query: str) -> list[dict]:
+    """複数コンセプト対応の関連度スコアリング検索。
+
+    スコアの考え方:
+      1次ソート: マッチしたコンセプトグループ数（多いほど上位）
+      2次ソート: 各グループ内のキーワードヒット詳細スコア
+        - タグ一致: +3, シチュエーション名一致: +2, 本文一致: +1
+    """
     if not query.strip():
         return list(templates)
-    raw = [kw for kw in query.lower().replace("、", " ").replace(",", " ").split() if kw]
-    keywords = _expand_keywords(raw)
-    scored = []
+
+    concept_groups = _extract_concept_groups(query)
+
+    scored: list[tuple[int, int, dict]] = []
     for t in templates:
-        score = 0
         tag_str = " ".join(t.get("tags", [])).lower()
         sit_str = t.get("situation", "").lower()
         body_str = t.get("body", "").lower()
-        for kw in keywords:
-            if kw in tag_str:
-                score += 3
-            if kw in sit_str:
-                score += 2
-            if kw in body_str:
-                score += 1
-        if score > 0:
-            scored.append((score, t))
+
+        groups_matched = 0
+        detail_score = 0
+
+        for cg in concept_groups:
+            group_hit = False
+            for kw in cg:
+                hit = False
+                if kw in tag_str:
+                    detail_score += 3
+                    hit = True
+                if kw in sit_str:
+                    detail_score += 2
+                    hit = True
+                if kw in body_str:
+                    detail_score += 1
+                    hit = True
+                if hit:
+                    group_hit = True
+            if group_hit:
+                groups_matched += 1
+
+        if groups_matched > 0:
+            # コンセプトグループ数を最優先、同数なら詳細スコアで並べる
+            final_score = groups_matched * 10000 + detail_score
+            scored.append((final_score, id(t), t))
+
     scored.sort(key=lambda x: x[0], reverse=True)
-    return [t for _, t in scored]
+    return [t for _, _, t in scored]
