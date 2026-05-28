@@ -105,16 +105,16 @@
 
 <!-- Tab 5: LINE返信補助 -->
 <section id="tab-line" class="tab-content">
-  <div class="row">
-    <label>相手の返信内容・キーワード</label>
-    <input type="text" id="line-search" placeholder="例: 上司がきつい、残業多い、リスケ...">
+  <div class="line-search-wrap">
+    <span class="line-search-icon">🔍</span>
+    <input type="text" id="line-search" placeholder="相手の返信内容を入力...">
   </div>
   <div id="line-categories" class="line-category-bar"></div>
   <div id="line-situations" class="line-tag-cloud"></div>
-  <div id="line-results-count" class="caption"></div>
+  <div id="line-results-count"></div>
   <div id="line-results"></div>
 
-  <details style="margin-top:12px;">
+  <details style="margin-top:14px;">
     <summary>✅ 品質チェックリスト</summary>
     <ul id="line-quality-checklist"></ul>
   </details>

@@ -462,30 +462,47 @@ function splitBody(body) {
   return { part1: body.substring(0, idx), part2: body.substring(idx + 2) };
 }
 
-// --- コピーボタンのヘルパー ---
-function makeCopyBtn(getText, label = "コピー") {
-  const btn = document.createElement("button");
-  btn.className = "line-copy-btn";
-  btn.textContent = label;
-  btn.addEventListener("click", async () => {
-    await navigator.clipboard.writeText(getText());
-    btn.classList.add("copied");
-    btn.textContent = "✓ コピー済";
+// --- コピーブロック生成（クリックでコピー） ---
+function makeCopyBlock(text, labelText, labelClass) {
+  const wrap = document.createElement("div");
+
+  // ラベル
+  const lbl = document.createElement("div");
+  lbl.className = `line-part-label ${labelClass}`;
+  lbl.textContent = labelText;
+  wrap.appendChild(lbl);
+
+  // テキストブロック
+  const block = document.createElement("div");
+  block.className = "line-copy-block";
+  block.textContent = text;
+
+  const hint = document.createElement("span");
+  hint.className = "copy-hint";
+  hint.textContent = "タップでコピー";
+  block.appendChild(hint);
+
+  block.addEventListener("click", async () => {
+    await navigator.clipboard.writeText(text);
+    block.classList.add("copied");
+    hint.textContent = "✓ コピー済";
     setTimeout(() => {
-      btn.classList.remove("copied");
-      btn.textContent = label;
+      block.classList.remove("copied");
+      hint.textContent = "タップでコピー";
     }, 1500);
   });
-  return btn;
+
+  wrap.appendChild(block);
+  return wrap;
 }
 
-// --- 結果カード描画（2通分割UI） ---
+// --- 結果カード描画 ---
 function renderLineResults(results) {
   const container = document.getElementById("line-results");
   const countEl = document.getElementById("line-results-count");
   container.innerHTML = "";
   countEl.textContent = results.length
-    ? `${results.length}件のテンプレート`
+    ? `${results.length}件`
     : "一致するテンプレートがありません";
 
   for (const t of results) {
@@ -500,56 +517,16 @@ function renderLineResults(results) {
     const catLabel = (LINE_CATEGORIES.find(c => c.id === t.category) || {}).label || "";
     header.innerHTML =
       `<strong>${escHtml(t.situation)}</strong>` +
-      `<span class="line-card-tags">${catLabel ? catLabel + " · " : ""}${t.tags.map(tag => "#" + escHtml(tag)).join(" ")}</span>`;
+      `<span class="line-card-tags">${catLabel}</span>`;
     card.appendChild(header);
 
-    // 1通目
-    const sec1 = document.createElement("div");
-    sec1.className = "line-part";
-    const lbl1 = document.createElement("div");
-    lbl1.className = "line-part-label line-part-label-1";
-    lbl1.textContent = "① 共感（1通目）";
-    sec1.appendChild(lbl1);
-    const ta1 = document.createElement("textarea");
-    ta1.className = "ta line-part-ta";
-    ta1.rows = 4;
-    ta1.value = part1;
-    sec1.appendChild(ta1);
-    const act1 = document.createElement("div");
-    act1.className = "line-part-actions";
-    act1.appendChild(makeCopyBtn(() => ta1.value, "1通目をコピー"));
-    sec1.appendChild(act1);
-    card.appendChild(sec1);
+    // 1通目（クリックでコピー）
+    card.appendChild(makeCopyBlock(part1, "① 共感", "line-part-label-1"));
 
     // 2通目（ある場合のみ）
     if (part2) {
-      const sec2 = document.createElement("div");
-      sec2.className = "line-part";
-      const lbl2 = document.createElement("div");
-      lbl2.className = "line-part-label line-part-label-2";
-      lbl2.textContent = "② クロージング（2通目）";
-      sec2.appendChild(lbl2);
-      const ta2 = document.createElement("textarea");
-      ta2.className = "ta line-part-ta";
-      ta2.rows = 4;
-      ta2.value = part2;
-      sec2.appendChild(ta2);
-      const act2 = document.createElement("div");
-      act2.className = "line-part-actions";
-      act2.appendChild(makeCopyBtn(() => ta2.value, "2通目をコピー"));
-      sec2.appendChild(act2);
-      card.appendChild(sec2);
+      card.appendChild(makeCopyBlock(part2, "② クロージング", "line-part-label-2"));
     }
-
-    // 全文コピー
-    const actAll = document.createElement("div");
-    actAll.className = "line-card-actions";
-    actAll.appendChild(makeCopyBtn(() => {
-      // textarea の現在値を結合
-      const texts = card.querySelectorAll(".line-part-ta");
-      return Array.from(texts).map(el => el.value).join("\n\n");
-    }, "全文コピー"));
-    card.appendChild(actAll);
 
     container.appendChild(card);
   }
