@@ -520,6 +520,13 @@ def save_line_templates(templates: list[dict]) -> None:
         json.dump(templates, f, ensure_ascii=False, indent=2)
 
 
+def get_templates_mtime() -> float:
+    """テンプレートファイルの最終更新タイムスタンプを返す。ファイルがなければ 0。"""
+    if os.path.exists(_SAVE_FILE):
+        return os.path.getmtime(_SAVE_FILE)
+    return 0.0
+
+
 def reset_line_templates() -> None:
     if os.path.exists(_SAVE_FILE):
         os.remove(_SAVE_FILE)

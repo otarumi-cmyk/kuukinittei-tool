@@ -1,4 +1,5 @@
 """LINE返信補助: シチュエーション別テンプレートの検索・編集・コピー"""
+import datetime
 import streamlit as st
 
 from line_template_store import (
@@ -8,6 +9,7 @@ from line_template_store import (
     save_line_templates,
     reset_line_templates,
     search_templates,
+    get_templates_mtime,
 )
 from ui_helpers import check_password
 
@@ -25,12 +27,40 @@ st.caption(
 if not check_password():
     st.stop()
 
-# テンプレ読み込み
+# ---------- 自動同期: ファイルが更新されたらセッションを自動リロード ----------
+current_mtime = get_templates_mtime()
+if "line_mtime" not in st.session_state:
+    st.session_state.line_mtime = current_mtime
+
+if current_mtime > st.session_state.line_mtime:
+    # 誰かが更新した → 自動で最新を読み込む
+    st.session_state.line_templates = load_line_templates()
+    st.session_state.line_mtime = current_mtime
+    st.toast("🔄 テンプレートが更新されました！最新版を読み込みました")
+
+# テンプレ読み込み（初回）
 if "line_templates" not in st.session_state:
     st.session_state.line_templates = load_line_templates()
+    st.session_state.line_mtime = current_mtime
 
 templates = st.session_state.line_templates
 cat_labels = {c["id"]: c["label"] for c in CATEGORIES}
+
+# ---------- 更新ボタン ----------
+col_count, col_sync = st.columns([3, 1])
+with col_count:
+    mtime = get_templates_mtime()
+    if mtime > 0:
+        dt = datetime.datetime.fromtimestamp(mtime)
+        st.caption(f"📄 {len(templates)}件 · 最終更新: {dt:%m/%d %H:%M}")
+    else:
+        st.caption(f"📄 {len(templates)}件（デフォルト）")
+with col_sync:
+    if st.button("🔄 最新に更新", key="line_sync", use_container_width=True):
+        st.session_state.line_templates = load_line_templates()
+        st.session_state.line_mtime = get_templates_mtime()
+        st.toast("最新版を読み込みました ✅")
+        st.rerun()
 
 
 def _split_body(body: str) -> tuple[str, str]:
@@ -163,7 +193,8 @@ with st.expander("🔧 テンプレート管理"):
                 }
             )
             save_line_templates(st.session_state.line_templates)
-            st.success(f"「{new_sit}」を追加しました")
+            st.session_state.line_mtime = get_templates_mtime()
+            st.success(f"「{new_sit}」を追加しました（全員に反映されます）")
             st.rerun()
         else:
             st.error("シチュエーション名と本文は必須です")
@@ -184,11 +215,13 @@ with st.expander("🔧 テンプレート管理"):
                     x for x in st.session_state.line_templates if x["id"] != t["id"]
                 ]
                 save_line_templates(st.session_state.line_templates)
+                st.session_state.line_mtime = get_templates_mtime()
                 st.rerun()
 
     st.divider()
     if st.button("↺ デフォルトに戻す", key="line_reset"):
         reset_line_templates()
         st.session_state.line_templates = load_line_templates()
+        st.session_state.line_mtime = get_templates_mtime()
         st.success("デフォルトに戻しました")
         st.rerun()
