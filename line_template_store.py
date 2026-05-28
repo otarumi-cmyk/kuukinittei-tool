@@ -13,6 +13,7 @@ CATEGORIES = [
     {"id": "life",         "label": "ライフイベント"},
     {"id": "anxiety",      "label": "不安・迷い"},
     {"id": "jobs",         "label": "職種別"},
+    {"id": "reschedule",   "label": "リスケ対応"},
 ]
 
 def _cl(reason: str) -> str:
@@ -226,16 +227,16 @@ DEFAULT_LINE_TEMPLATES: list[dict] = [
     {"id":"anx_reminder","category":"anxiety","situation":"当日リマインド",
      "tags":["リマインド","当日","今日","本日"],
      "body":"本日はよろしくお願いいたします☺️\n\nお時間になりましたら、こちらのリンクからご参加ください✨\n\nリンク: \n\nラフな感じで大丈夫なので、気負わずに来てくださいね🙆‍♀️"},
-    {"id":"anx_reschedule","category":"anxiety","situation":"リスケ希望（事前連絡あり）",
+    {"id":"anx_reschedule","category":"reschedule","situation":"リスケ希望（事前連絡あり）",
      "tags":["リスケ","変更","別日","ずらし","キャンセル","事前"],
      "body":"事前にご連絡いただきありがとうございます！全然大丈夫ですよ☺️\nまた別の日程で調整しましょう✨\n\nご都合の良い日程をいくつかいただければ、こちらで合わせますね🙆‍♀️"},
-    {"id":"anx_reschedule_当日","category":"anxiety","situation":"リスケ希望（当日キャンセル）",
+    {"id":"anx_reschedule_当日","category":"reschedule","situation":"リスケ希望（当日キャンセル）",
      "tags":["リスケ","当日","キャンセル","ドタキャン","行けない","急に"],
      "body":"ご連絡ありがとうございます！大丈夫ですよ☺️\n急な予定変更は誰にでもあるので、気にしないでくださいね✨\n\nまた都合の良い日程を教えていただければ、調整しますね🙆‍♀️"},
-    {"id":"anx_reschedule_理由あり","category":"anxiety","situation":"リスケ希望（体調不良・仕事など理由あり）",
+    {"id":"anx_reschedule_理由あり","category":"reschedule","situation":"リスケ希望（体調不良・仕事など理由あり）",
      "tags":["リスケ","体調","仕事","用事","予定","急用"],
      "body":"ご連絡ありがとうございます！お体大丈夫ですか？🥲\n無理されないでくださいね。日程はいつでも調整できるので☺️\n\n落ち着いたタイミングで、ご都合の良い日程を教えてください🙆‍♀️"},
-    {"id":"anx_reschedule_曖昧","category":"anxiety","situation":"リスケ希望（やっぱり迷ってる）",
+    {"id":"anx_reschedule_曖昧","category":"reschedule","situation":"リスケ希望（やっぱり迷ってる）",
      "tags":["リスケ","迷い","やっぱり","不安","どうしよう","悩む"],
      "body":"ご連絡ありがとうございます！迷う気持ち、全然おかしくないですよ☺️\n無理に決めなくて大丈夫なので、気が向いたタイミングでまたご連絡くださいね✨\n\nいつでもお待ちしてます🙆‍♀️"},
     {"id":"anx_meet_what","category":"anxiety","situation":"Google Meetって何？/知らない",
