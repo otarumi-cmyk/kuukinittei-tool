@@ -9,3 +9,6 @@ __pycache__/
 .venv/
 venv/
 .DS_Store
+
+# Local extension signing key
+/chrome_extension/extension_key.pem
